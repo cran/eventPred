@@ -4,22 +4,33 @@
 \alias{fitEvent}
 \title{Fit time-to-event model}
 \usage{
-fitEvent(df, event_model = "model averaging", npieces = 3)
+fitEvent(
+  df,
+  event_model = "model averaging",
+  piecewiseSurvivalTime = 0,
+  showplot = TRUE
+)
 }
 \arguments{
 \item{df}{The subject-level event data, including \code{time}
 and \code{event}.}
 
-\item{event_model}{The event model which specifies the type of event
-model to be used in the analysis and can be set to one of the
+\item{event_model}{The event model used to analyze the event data
+which can be set to one of the
 following options: "exponential", "Weibull", "log-normal",
-"piecewise exponential", or "model averaging", which uses the
-\code{exp(-bic)} weighting and combines Weibull and
+"piecewise exponential", or "model averaging". The model averaging
+uses the \code{exp(-bic)} weighting and combines Weibull and
 log-normal models. By default, it is set to "model
 averaging".}
 
-\item{npieces}{The number of pieces for the piecewise exponential
-event model. By default, it is set to 3.}
+\item{piecewiseSurvivalTime}{A vector that specifies the time
+intervals for the piecewise exponential survival distribution.
+Must start with 0, e.g., c(0, 60) breaks the time axis into 2
+event intervals: [0, 60) and [60, Inf). By default, it is set to 0.}
+
+\item{showplot}{A Boolean variable to control whether or not to
+show the fitted time-to-event survival curve. By default, it is
+set to \code{TRUE}.}
 }
 \value{
 A list of results from the model fit including key information
@@ -27,20 +38,22 @@ such as the event model, \code{model}, the estimated model parameters,
 \code{theta}, the covariance matrix, \code{vtheta}, as well as the
 Bayesian Information Criterion, \code{bic}.
 
-If the piecewise exponential model is used, additional
-variables will be included in the list of results, such as the
-number of pieces, \code{npieces}, and the location
-of knots used in the model, \code{knots}.
+If the piecewise exponential model is used, the location
+of knots used in the model, \code{piecewiseSurvivalTime}, will
+be included in the list of results.
 
 If the model averaging option is chosen, the weight assigned
 to the Weibull component is indicated by the \code{w1} variable.
+
+The fitted time-to-event survival curve is also returned.
 }
 \description{
 Fits a specified time-to-event model to the event data.
 }
 \examples{
 
-event_fit <- fitEvent(df = observedData,
-                      event_model = "piecewise exponential", npieces = 3)
+event_fit <- fitEvent(df = interimData2,
+                      event_model = "piecewise exponential",
+                      piecewiseSurvivalTime = c(0, 180))
 
 }

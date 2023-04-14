@@ -4,41 +4,56 @@
 \alias{fitEnrollment}
 \title{Fit enrollment model}
 \usage{
-fitEnrollment(df, enroll_model = "b-spline", nknots = 1)
+fitEnrollment(
+  df,
+  enroll_model = "b-spline",
+  nknots = 0,
+  accrualTime = 0,
+  showplot = TRUE
+)
 }
 \arguments{
 \item{df}{The subject-level enrollment data, including
 \code{randdt} and \code{cutoffdt}.}
 
 \item{enroll_model}{The enrollment model which can be specified as
-"Poisson", "time-decay", or "B-spline". By default, it
-is set to "B-spline".}
+"Poisson", "Time-decay", "B-spline", or
+"Piecewise Poisson". By default, it is set to "B-spline".}
 
 \item{nknots}{The number of inner knots for the B-spline enrollment
-model. By default, it is set to 1.}
+model. By default, it is set to 0.}
+
+\item{accrualTime}{The accrual time intervals for the piecewise Poisson
+model. Must start with 0, e.g., c(0, 30) breaks the time axis into
+2 accrual intervals: [0, 30) and [30, Inf). By default, it is set to 0.}
+
+\item{showplot}{A Boolean variable to control whether or not to
+show the fitted enrollment curve. By default, it is set to \code{TRUE}.}
 }
 \value{
 A list of results from the model fit including key information
 such as the enrollment model, \code{model}, the estimated model
 parameters, \code{theta}, the covariance matrix, \code{vtheta}, and
-the Bayesian information criterion, \code{bic}, as well as
-the design matrix \code{x} for the B-spline enrollment model.
+the Bayesian Information Criterion, \code{bic}, as well as
+the design matrix \code{x} for the B-spline enrollment model, and
+\code{accrualTime} for the piecewise Poisson enrollment model.
+The fitted enrollment curve is also returned.
 }
 \description{
 Fits a specified enrollment model to the enrollment data.
 }
 \details{
 For the time-decay model, the mean function is
-\code{mu(t) = (mu/delta) (t - (1/delta)(1 - exp(-delta*t)))}
+\code{mu(t) = mu/delta*(t - 1/delta*(1 - exp(-delta*t)))}
 and the rate function is
-\code{lambda(t) = (mu/delta) (1 - exp(-delta*t))}.
+\code{lambda(t) = mu/delta*(1 - exp(-delta*t))}.
 For the B-spline model, the daily enrollment rate is approximated as
 \code{lambda(t) = exp(B(t)*theta)},
 where \code{B(t)} represents the B-spline basis functions.
 }
 \examples{
 
-enroll_fit <- fitEnrollment(df = observedData, enroll_model = "b-spline",
+enroll_fit <- fitEnrollment(df = interimData1, enroll_model = "b-spline",
                             nknots = 1)
 
 }

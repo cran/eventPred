@@ -13,7 +13,13 @@ predictEvent(
   fixedFollowup = FALSE,
   followupTime = 365,
   pilevel = 0.9,
+  nyears = 4,
   nreps = 500,
+  showEnrollment = TRUE,
+  showEvent = TRUE,
+  showDropout = FALSE,
+  showOngoing = FALSE,
+  showsummary = TRUE,
   showplot = TRUE
 )
 }
@@ -25,7 +31,8 @@ is set to \code{NULL} for event prediction at the design stage.}
 
 \item{target_d}{The target number of events to reach in the study.}
 
-\item{newSubjects}{The enrollment data for new subjects. By default,
+\item{newSubjects}{The enrollment data for new subjects including
+\code{draw} and \code{arrivalTime}. By default,
 it is set to \code{NULL}, indicating the completion of
 subject enrollment.}
 
@@ -46,19 +53,41 @@ follow-up design, in days. By default, it is set to 365.}
 \item{pilevel}{The prediction interval level. By default,
 it is set to 0.90.}
 
-\item{nreps}{The number of replications for simulation. By default,
-it is set to 500.}
+\item{nyears}{The number of years after the data cut for prediction.
+By default, it is set to 4.}
 
-\item{showplot}{A Boolean variable to control whether or not
-the prediction plot is displayed. By default, it is set to
+\item{nreps}{The number of replications for simulation. By default,
+it is set to 500. If \code{newSubjects} is not \code{NULL},
+the number of draws in \code{newSubjects} should be \code{nreps}.}
+
+\item{showEnrollment}{A Boolean variable to control whether or not to
+show the number of enrolled subjects. By default, it is set to
 \code{TRUE}.}
+
+\item{showEvent}{A Boolean variable to control whether or not to
+show the number of events. By default, it is set to
+\code{TRUE}.}
+
+\item{showDropout}{A Boolean variable to control whether or not to
+show the number of dropouts. By default, it is set to
+\code{FALSE}.}
+
+\item{showOngoing}{A Boolean variable to control whether or not to
+show the number of ongoing subjects. By default, it is set to
+\code{FALSE}.}
+
+\item{showsummary}{A Boolean variable to control whether or not to
+show the prediction summary. By default, it is set to \code{TRUE}.}
+
+\item{showplot}{A Boolean variable to control whether or not to
+show the prediction plot. By default, it is set to \code{TRUE}.}
 }
 \value{
 A list of prediction results which includes important
 information such as the median, lower and upper percentiles for
-the estimated time and date to reach the target number of events,
+the estimated day and date to reach the target number of events,
 as well as simulated event data for both ongoing and new subjects.
-Additionally, the data for the prediction plot is also included
+The data for the prediction plot is also included
 within this list.
 }
 \description{
@@ -75,40 +104,43 @@ important to provide the \code{newSubjects} data set.
 To specify the event model used during the design-stage event
 prediction, the \code{event_fit} list should include the event model,
 \code{model}, the number of treatment groups,
-\code{ngroups}, the randomization probabilities for each group,
-\code{prob}, the model parameters, \code{theta},
+\code{ngroups}, the treatment allocation within a randomization
+block, \code{alloc}, the model parameters, \code{theta},
 and the covariance matrix, \code{vtheta}, both of which
 have \code{ngroups} blocks with the \code{j}-th block
 specifying the prior distribution of model
 parameters for the \code{j}-th treatment group. For the
-piecewise exponential event model, \code{knots} should also
-be included to indicate the location of inner knots.
+piecewise exponential event model, \code{piecewiseSurvivalTime}
+should also be included to indicate the location of knots.
 It should be noted that the model averaging option is not
 appropriate for use during the design stage.
 
 To specify the dropout model used during the design stage
 event prediction, the \code{dropout_fit} list should include
 the dropout model, \code{model}, the number of treatment groups,
-\code{ngroups}, the randomization probabilities for each
-group, \code{prob}, the model parameters, \code{theta}, and
+\code{ngroups}, the treatment allocation within a randomization
+block, \code{alloc}, the model parameters, \code{theta}, and
 the covariance matrix ,\code{vtheta}, both of which have
 \code{ngroups} blocks with the \code{j}-th block specifying
 the prior distribution of model parameters for the
-\code{j}-th treatment group.
+\code{j}-th treatment group. For the piecewise exponential
+dropout model, \code{piecewiseDropoutTime}
+should also be included to indicate the location of knots.
 }
 \examples{
 
 # Event prediction after enrollment completion
 
-event_fit <- fitEvent(df = observedData,
-                      event_model = "piecewise exponential", npieces = 3)
+event_fit <- fitEvent(df = interimData2,
+                      event_model = "piecewise exponential",
+                      piecewiseSurvivalTime = c(0, 140, 352))
 
-dropout_fit <- fitDropout(df = observedData,
+dropout_fit <- fitDropout(df = interimData2,
                           dropout_model = "exponential")
 
-event_pred <- predictEvent(df = observedData, target_d = 200,
-                           event_fit = event_fit,
-                           dropout_fit = dropout_fit,
-                           pilevel = 0.90, nreps = 200)
+event_pred <- predictEvent(df = interimData2, target_d = 200,
+                           event_fit = event_fit$event_fit,
+                           dropout_fit = dropout_fit$dropout_fit,
+                           pilevel = 0.90, nreps = 100)
 
 }

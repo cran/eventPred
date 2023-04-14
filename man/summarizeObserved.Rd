@@ -4,11 +4,7 @@
 \alias{summarizeObserved}
 \title{Summarize observed data}
 \usage{
-summarizeObserved(
-  df,
-  to_predict = "enrollment and event",
-  dropout_model = "weibull"
-)
+summarizeObserved(df, to_predict = "enrollment and event", showplot = TRUE)
 }
 \arguments{
 \item{df}{The subject-level data, including \code{randdt} and
@@ -20,25 +16,27 @@ for event prediction.}
 "event only", or "enrollment and event". By default, it is set to
 "enrollment and event".}
 
-\item{dropout_model}{The dropout model with options including "none",
-"exponential", "Weibull", and "log-normal". By default, it is
-set to "Weibull".}
+\item{showplot}{A Boolean variable to control whether or not to
+show the observed data plots. By default, it is set to \code{TRUE}.}
 }
 \value{
-A list that includes a range of summary statistics and
-data sets depending on the value of \code{to_predict}.
+A list that includes a range of summary statistics,
+data sets, and plots depending on the value of \code{to_predict}.
 }
 \description{
 Provides an overview of the observed data, including
 the trial start date, data cutoff date, number of subjects
 enrolled, enrollment duration, number of events and dropouts,
 number of subjects at risk, cumulative enrollment and event data,
-daily enrollment rate, and Kaplan-Meier plots for time to event
+daily enrollment rates, and Kaplan-Meier plots for time to event
 and time to dropout.
 }
 \examples{
 
-observed <- summarizeObserved(df = observedData,
-                              to_predict = "enrollment and event")
+observed1 <- summarizeObserved(df = interimData1,
+                               to_predict = "enrollment and event")
+
+observed2 <- summarizeObserved(df = interimData2,
+                               to_predict = "event only")
 
 }

@@ -10,18 +10,27 @@ getPrediction(
   target_n = NA,
   target_d = NA,
   enroll_model = "b-spline",
-  nknots = 1,
-  parameter_enroll_model = NULL,
+  nknots = 0,
   lags = 30,
+  accrualTime = 0,
+  enroll_model_parameter = NULL,
   event_model = "model averaging",
-  npieces = 3,
-  parameter_event_model = NULL,
+  piecewiseSurvivalTime = 0,
+  event_model_parameter = NULL,
   dropout_model = "weibull",
-  parameter_dropout_model = NULL,
+  piecewiseDropoutTime = 0,
+  dropout_model_parameter = NULL,
   fixedFollowup = FALSE,
   followupTime = 365,
   pilevel = 0.9,
-  nreps = 500
+  nyears = 4,
+  nreps = 500,
+  showEnrollment = TRUE,
+  showEvent = TRUE,
+  showDropout = FALSE,
+  showOngoing = FALSE,
+  showsummary = TRUE,
+  showplot = TRUE
 )
 }
 \arguments{
@@ -39,38 +48,51 @@ only", or "enrollment and event". By default, it is set to
 \item{target_d}{The target number of events to reach in the study.}
 
 \item{enroll_model}{The enrollment model which can be specified as
-"Poisson", "time-decay", or "B-spline". By default, it
-is set to "B-spline".}
+"Poisson", "Time-decay", "B-spline", or
+"Piecewise Poisson". By default, it is set to "B-spline".}
 
 \item{nknots}{The number of inner knots for the B-spline enrollment
-model. By default, it is set to 1.}
-
-\item{parameter_enroll_model}{The enrollment model parameters for
-design-stage enrollment prediction.}
+model. By default, it is set to 0.}
 
 \item{lags}{The day lags to compute the average enrollment rate to
 carry forward for the B-spline enrollment model. By default,
 it is set to 30.}
 
-\item{event_model}{The event model which specifies the type of event
-model to be used in the analysis and can be set to one of the
+\item{accrualTime}{The accrual time intervals for the piecewise
+Poisson model. Must start with 0, e.g., c(0, 30) breaks the
+time axis into 2 accrual intervals: [0, 30) and [30, Inf).
+By default, it is set to 0.}
+
+\item{enroll_model_parameter}{The enrollment model parameters for
+design-stage enrollment prediction.}
+
+\item{event_model}{The event model used to analyze the event data
+which can be set to one of the
 following options: "exponential", "Weibull", "log-normal",
-"piecewise exponential", or "model averaging", which uses the
-\code{exp(-bic)} weighting and combines Weibull and
+"piecewise exponential", or "model averaging". The model averaging
+uses the \code{exp(-bic)} weighting and combines Weibull and
 log-normal models. By default, it is set to "model
 averaging".}
 
-\item{npieces}{The number of pieces for the piecewise exponential
-event model. By default, it is set to 3.}
+\item{piecewiseSurvivalTime}{A vector that specifies the time
+intervals for the piecewise exponential survival distribution.
+Must start with 0, e.g., c(0, 60) breaks the time axis into 2
+event intervals: [0, 60) and [60, Inf). By default, it is set to 0.}
 
-\item{parameter_event_model}{The event model parameters for
+\item{event_model_parameter}{The event model parameters for
 design-stage event prediction.}
 
-\item{dropout_model}{The dropout model with options including "none",
-"exponential", "Weibull", and "log-normal". By default, it is
-set to "Weibull".}
+\item{dropout_model}{The dropout model used to analyze the dropout data
+which can be set to one of the following options: "exponential",
+"Weibull", "log-normal", or "piecewise exponential". By default,
+it is set to "Weibull".}
 
-\item{parameter_dropout_model}{The dropout model parameters for
+\item{piecewiseDropoutTime}{A vector that specifies the time
+intervals for the piecewise exponential dropout distribution.
+Must start with 0, e.g., c(0, 60) breaks the time axis into 2
+event intervals: [0, 60) and [60, Inf). By default, it is set to 0.}
+
+\item{dropout_model_parameter}{The dropout model parameters for
 design-stage event prediction.}
 
 \item{fixedFollowup}{A Boolean variable indicating whether a fixed
@@ -83,8 +105,33 @@ follow-up design, in days. By default, it is set to 365.}
 \item{pilevel}{The prediction interval level. By default,
 it is set to 0.90.}
 
+\item{nyears}{The number of years after the data cut for prediction.
+By default, it is set to 4.}
+
 \item{nreps}{The number of replications for simulation. By default,
 it is set to 500.}
+
+\item{showEnrollment}{A Boolean variable to control whether or not to
+show the number of enrolled subjects. By default, it is set to
+\code{TRUE}.}
+
+\item{showEvent}{A Boolean variable to control whether or not to
+show the number of events. By default, it is set to
+\code{TRUE}.}
+
+\item{showDropout}{A Boolean variable to control whether or not to
+show the number of dropouts. By default, it is set to
+\code{FALSE}.}
+
+\item{showOngoing}{A Boolean variable to control whether or not to
+show the number of ongoing subjects. By default, it is set to
+\code{FALSE}.}
+
+\item{showsummary}{A Boolean variable to control whether or not to
+show the prediction summary. By default, it is set to \code{TRUE}.}
+
+\item{showplot}{A Boolean variable to control whether or not to
+show the plots. By default, it is set to \code{TRUE}.}
 }
 \value{
 A list that includes the fits of observed data models,
@@ -97,66 +144,67 @@ observed data and specified enrollment and event models.
 }
 \details{
 For the time-decay model, the mean function is
-\code{mu(t) = (mu/delta) (t - (1/delta)(1 - exp(-delta*t)))}
+\code{mu(t) = mu/delta*(t - 1/delta*(1 - exp(-delta*t)))}
 and the rate function is
-\code{lambda(t) = (mu/delta) (1 - exp(-delta*t))}.
+\code{lambda(t) = mu/delta*(1 - exp(-delta*t))}.
 For the B-spline model, the daily enrollment rate is approximated as
 \code{lambda(t) = exp(B(t)*theta)},
 where \code{B(t)} represents the B-spline basis functions.
 
-The \code{parameter_enroll_model} variable can be used for
+The \code{enroll_model_parameter} variable can be used for
 enrollment prediction at the design stage. A piecewise Poisson
-can be parameterized through the time
-intervals, \code{accrualTime}, and the enrollment rates in
-the intervals, \code{accrualIntensity}. These are treated as
-fixed for design-stage enrollment prediction.
-For the homogeneous Poisson and time-decay models,
-\code{parameter_enroll_model} is used to specify the prior
+can be parameterized through the time intervals,
+\code{accrualTime}, which is treated as fixed, and the
+enrollment rates in the intervals, \code{accrualIntensity},
+the log of which is used as the model parameter. For the
+homogeneous Poisson, time-decay, and piecewise Poisson models,
+\code{enroll_model_parameter} is used to specify the prior
 distribution of model parameters, with a very small variance
 being used to fix the parameter values. It should be noted
 that the B-spline model is not appropriate for use during
 the design stage.
 
-For the \code{parameter_event_model}, it should be a list that
+The \code{event_model_parameter} variable should be a list that
 includes \code{model} to specify the event process,
 \code{ngroups} to indicate the number of treatment groups,
-\code{prob} to indicate the randomization probabilities
-for each group, \code{theta} and \code{vtheta} to indicate
+\code{alloc} to indicate the treatment allocation within a
+randomization block, \code{theta} and \code{vtheta} to indicate
 the parameter values and the covariance matrix, both of which
 have \code{ngroups} blocks with the \code{j}-th block specifying
 the prior distribution of model parameters for the \code{j}-th
 treatment group. For the piecewise exponential event model,
-this should also include \code{knots} to indicate the location
-of inner knots. It should be noted that the model averaging
+this should also include \code{piecewiseSurvivalTime} to indicate
+the location of knots. It should be noted that the model averaging
 option is not appropriate for use during the design stage.
 
-For the \code{parameter_dropout_model}, it should be a list that
+The \code{dropout_model_parameter} should be a list that
 includes \code{model} to specify the dropout process,
 \code{ngroups} to indicate the number of treatment groups,
-\code{prob} to indicate the randomization probabilities
-for each group, \code{theta} and \code{vtheta} to indicate
+\code{alloc} to indicate the treatment allocation within a
+randomization block, \code{theta} and \code{vtheta} to indicate
 the parameter values and the covariance matrix, both of which
 have \code{ngroups} blocks with the \code{j}-th block specifying
 the prior distribution of model parameters for the \code{j}-th
-treatment group.
+treatment group. For the piecewise exponential dropout model,
+this should also include \code{piecewiseDropoutTime} to indicate
+the location of knots.
 
 For analysis-stage enrollment and event prediction, the
-\code{parameter_enroll_model}, \code{parameter_event_model}, and
-\code{parameter_dropout_model} are either set to \code{NULL} to
+\code{enroll_model_parameter}, \code{event_model_parameter}, and
+\code{dropout_model_parameter} are either set to \code{NULL} to
 use the observed data only, or specify the prior distribution
 of model parameters to be combined with observed data likelihood
 for enhanced modeling flexibility.
 }
 \examples{
 
-# Enrollment and event prediction before enrollment completion
+# Event prediction after enrollment completion
 
 pred <- getPrediction(
-  df = observedData, to_predict = "enrollment and event",
-  target_n = 400, target_d = 200,
-  enroll_model = "b-spline", nknots = 1, lags = 30,
-  event_model = "piecewise exponential", npieces = 3,
+  df = interimData2, to_predict = "event only",
+  target_d = 200,
+  event_model = "weibull",
   dropout_model = "exponential",
-  pilevel = 0.90, nreps = 200)
+  pilevel = 0.90, nreps = 100)
 
 }

@@ -26,15 +26,15 @@ before enrollment completion, the \code{eventPred} package
 considers several models, including the homogeneous Poisson
 model, the time-decay model with an enrollment
 rate function \code{lambda(t) = mu/delta*(1 - exp(-delta*t))},
-and the B-spline model with the daily enrollment rate
-\code{lambda(t) = exp(B(t)*theta)}. If prior information exists
-on the model parameters, it can be combined with the likelihood
-to yield the posterior distribution.
+the B-spline model with the daily enrollment rate
+\code{lambda(t) = exp(B(t)*theta)}, and the piecewise Poisson model.
+If prior information exists on the model parameters, it can
+be combined with the likelihood to yield the posterior distribution.
 
 The \code{eventPred} package also offers several time-to-event
 models, including exponential, Weibull, log-normal, piecewise
-exponential, and model-averaging of Weibull and log-normal,
-for event prediction. For time to dropout, exponential, Weibull,
+exponential, and model-averaging of Weibull and log-normal.
+For time to dropout, exponential, Weibull,
 and log-normal distributions are considered. If enrollment
 is complete, ongoing subjects who have not had the event of interest
 or dropped out of the study before the data cut contribute
@@ -69,6 +69,10 @@ following parameterization to achieve this goal:
 \item Poisson: \code{theta = log(rate)}
 \item Time-decay: \code{theta = (log(mu), log(delta))}
 \item B-spline: no reparametrization is needed
+\item Piecewise Poisson: \code{theta = log(rates)}.
+The left endpoints of time intervals, denoted as
+\code{accrualTime}, are considered fixed.
+
 }
 
 \item Event or dropout models

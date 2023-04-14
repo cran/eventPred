@@ -24,15 +24,15 @@
 #' considers several models, including the homogeneous Poisson
 #' model, the time-decay model with an enrollment
 #' rate function \code{lambda(t) = mu/delta*(1 - exp(-delta*t))},
-#' and the B-spline model with the daily enrollment rate
-#' \code{lambda(t) = exp(B(t)*theta)}. If prior information exists
-#' on the model parameters, it can be combined with the likelihood
-#' to yield the posterior distribution.
+#' the B-spline model with the daily enrollment rate
+#' \code{lambda(t) = exp(B(t)*theta)}, and the piecewise Poisson model.
+#' If prior information exists on the model parameters, it can
+#' be combined with the likelihood to yield the posterior distribution.
 #'
 #' The \code{eventPred} package also offers several time-to-event
 #' models, including exponential, Weibull, log-normal, piecewise
-#' exponential, and model-averaging of Weibull and log-normal,
-#' for event prediction. For time to dropout, exponential, Weibull,
+#' exponential, and model-averaging of Weibull and log-normal.
+#' For time to dropout, exponential, Weibull,
 #' and log-normal distributions are considered. If enrollment
 #' is complete, ongoing subjects who have not had the event of interest
 #' or dropped out of the study before the data cut contribute
@@ -67,6 +67,11 @@
 #'     \item Poisson: \code{theta = log(rate)}
 #'     \item Time-decay: \code{theta = (log(mu), log(delta))}
 #'     \item B-spline: no reparametrization is needed
+#'     \item Piecewise Poisson: \code{theta = log(rates)}.
+#'     The left endpoints of time intervals, denoted as
+#'     \code{accrualTime}, are considered fixed.
+#'
+#'
 #'   }
 #'
 #'   \item Event or dropout models
@@ -106,25 +111,20 @@
 #' accrual in clinical trials. Stat in Med. 2010;29:649-658.
 #'
 #'
-#' @importFrom dplyr %>% arrange bind_rows filter first group_by last
-#'   mutate n rename rename_all row_number select summarize tibble
-#' @importFrom grid gpar grobTree textGrob
-#' @importFrom ggplot2 aes annotation_custom geom_hline geom_line
-#'   geom_point geom_rect geom_ribbon geom_smooth geom_step geom_text
-#'   geom_vline ggplot labs scale_x_continuous scale_x_date theme_bw
-#'   theme_void
+#' @importFrom dplyr %>% arrange as_tibble bind_rows cross_join filter
+#'   group_by mutate n rename rename_all row_number select slice
+#'   summarize tibble
+#' @importFrom plotly plot_ly add_lines add_ribbons hide_legend layout
 #' @importFrom survival Surv survfit survreg
-#' @importFrom patchwork plot_layout
-#' @importFrom scales breaks_width date_format
-#' @importFrom lubridate interval
 #' @importFrom splines bs
 #' @importFrom Matrix bdiag
 #' @importFrom mvtnorm rmvnorm
 #' @importFrom rstpm2 vuniroot
+#' @importFrom numDeriv grad
 #' @importFrom tmvtnsim rtnorm
-#' @importFrom stats dlnorm dweibull loess optim optimHess pexp plnorm
-#'   plogis pweibull qlogis quantile rbinom rexp rlnorm rmultinom rnorm
-#'   runif rweibull uniroot
+#' @importFrom stats dlnorm dnorm dweibull loess.smooth optim
+#'   optimHess pexp plnorm plogis pnorm pweibull qlogis qnorm quantile
+#'   rbinom rexp rlnorm rmultinom rnorm runif rweibull uniroot
 #' @importFrom erify check_bool check_class check_content check_n
 #'   check_positive
 #' @importFrom rlang .data

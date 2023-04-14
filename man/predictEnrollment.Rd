@@ -10,7 +10,9 @@ predictEnrollment(
   enroll_fit,
   lags = 30,
   pilevel = 0.9,
+  nyears = 4,
   nreps = 500,
+  showsummary = TRUE,
   showplot = TRUE
 )
 }
@@ -31,48 +33,54 @@ it is set to 30.}
 \item{pilevel}{The prediction interval level. By default,
 it is set to 0.90.}
 
+\item{nyears}{The number of years after the data cut for prediction.
+By default, it is set to 4.}
+
 \item{nreps}{The number of replications for simulation. By default,
 it is set to 500.}
 
-\item{showplot}{A Boolean variable to control whether or not
-the prediction plot is displayed. By default, it is set to
-\code{TRUE}.}
+\item{showsummary}{A Boolean variable to control whether or not to
+show the prediction summary. By default, it is set to \code{TRUE}.}
+
+\item{showplot}{A Boolean variable to control whether or not to
+show the prediction plot. By default, it is set to \code{TRUE}.}
 }
 \value{
 A list of prediction results, which includes important information
 such as the median, lower and upper percentiles for the estimated
 time to reach the target number of subjects, as well as simulated
-enrollment data for new subjects. Additionally, the data for the
+enrollment data for new subjects. The data for the
 prediction plot is also included within the list.
 }
 \description{
 Utilizes a pre-fitted enrollment model to generate
-enrollment times for new subjects and also provide a prediction
+enrollment times for new subjects and provide a prediction
 interval for the expected time to reach the enrollment target.
 }
 \details{
-The \code{enroll_fit} variable can be used for enrollment
-prediction at the design stage. A piecewise Poisson enrollment
-model can be parameterized through the time intervals,
-\code{accrualTime}, and the enrollment rates in the intervals,
-\code{accrualIntensity}. These are treated as fixed for
-design-stage enrollment prediction.
-For the homogeneous Poisson and time-decay models,
-\code{enroll_fit} is used to specify the prior distribution of
-model parameters, with a very small variance being used to fix
-the parameter values. It should be noted that the B-spline model
-is not appropriate for use during the design stage.
+The \code{enroll_fit} variable can be used for enrollment prediction
+at the design stage. A piecewise Poisson can be parameterized
+through the time intervals, \code{accrualTime}, which is
+treated as fixed, and the enrollment rates in the intervals,
+\code{accrualIntensity}, the log of which is used as the
+model parameter. For the homogeneous Poisson, time-decay,
+and piecewise Poisson models, \code{enroll_fit} is used to
+specify the prior distribution of model parameters, with
+a very small variance being used to fix the parameter values.
+It should be noted that the B-spline model is not appropriate
+for use during the design stage.
 }
 \examples{
 
 # Enrollment prediction at the design stage
 
 enroll_pred <- predictEnrollment(
-  target_n = 400,
+  target_n = 300,
   enroll_fit = list(model = "piecewise poisson",
-                    accrualTime = seq(0, 8)*30.4375,
-                    accrualIntensity = 26/9*seq(1, 9)/30.4375),
-  pilevel = 0.90, nreps = 200)
+                    theta = log(26/9*seq(1, 9)/30.4375),
+                    vtheta = diag(9)*1e-8,
+                    accrualTime = seq(0, 8)*30.4375),
+  pilevel = 0.90, nreps = 100)
 
 
 }
