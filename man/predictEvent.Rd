@@ -25,7 +25,7 @@ predictEvent(
 }
 \arguments{
 \item{df}{The subject-level enrollment and event data,
-including \code{randdt}, \code{cutoffdt},
+including \code{trialsdt}, \code{randdt}, \code{cutoffdt},
 \code{time}, \code{event}, and \code{dropout}. By default, it
 is set to \code{NULL} for event prediction at the design stage.}
 

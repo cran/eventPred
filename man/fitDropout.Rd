@@ -6,7 +6,7 @@
 \usage{
 fitDropout(
   df,
-  dropout_model = "weibull",
+  dropout_model = "exponential",
   piecewiseDropoutTime = 0,
   showplot = TRUE
 )
@@ -18,7 +18,7 @@ fitDropout(
 \item{dropout_model}{The dropout model used to analyze the dropout data
 which can be set to one of the following options: "exponential",
 "Weibull", "log-normal", or "piecewise exponential". By default,
-it is set to "Weibull".}
+it is set to "exponential".}
 
 \item{piecewiseDropoutTime}{A vector that specifies the time
 intervals for the piecewise exponential dropout distribution.

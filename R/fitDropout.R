@@ -6,7 +6,7 @@
 #' @param dropout_model The dropout model used to analyze the dropout data
 #'   which can be set to one of the following options: "exponential",
 #'   "Weibull", "log-normal", or "piecewise exponential". By default,
-#'   it is set to "Weibull".
+#'   it is set to "exponential".
 #' @param piecewiseDropoutTime A vector that specifies the time
 #'   intervals for the piecewise exponential dropout distribution.
 #'   Must start with 0, e.g., c(0, 60) breaks the time axis into 2
@@ -32,7 +32,7 @@
 #'
 #' @export
 #'
-fitDropout <- function(df, dropout_model = "weibull",
+fitDropout <- function(df, dropout_model = "exponential",
                        piecewiseDropoutTime = 0, showplot = TRUE) {
   erify::check_class(df, "data.frame")
 

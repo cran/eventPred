@@ -5,7 +5,7 @@
 \alias{interimData2}
 \title{Interim enrollment and event data after enrollment completion}
 \format{
-An object of class \code{tbl_df} (inherits from \code{tbl}, \code{data.frame}) with 300 rows and 6 columns.
+An object of class \code{tbl_df} (inherits from \code{tbl}, \code{data.frame}) with 300 rows and 7 columns.
 }
 \usage{
 interimData2

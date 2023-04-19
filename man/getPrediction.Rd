@@ -17,7 +17,7 @@ getPrediction(
   event_model = "model averaging",
   piecewiseSurvivalTime = 0,
   event_model_parameter = NULL,
-  dropout_model = "weibull",
+  dropout_model = "exponential",
   piecewiseDropoutTime = 0,
   dropout_model_parameter = NULL,
   fixedFollowup = FALSE,
@@ -34,10 +34,10 @@ getPrediction(
 )
 }
 \arguments{
-\item{df}{The subject-level enrollment and event data,
-including \code{randdt}, \code{cutoffdt}, \code{time}, \code{event},
-and \code{dropout}. By default, it is set to \code{NULL} for
-enrollment and event prediction at the design stage.}
+\item{df}{The subject-level enrollment and event data, including
+\code{trialsdt}, \code{randdt}, \code{cutoffdt}, \code{time},
+\code{event}, and \code{dropout}. By default, it is set to
+\code{NULL} for enrollment and event prediction at the design stage.}
 
 \item{to_predict}{Specifies what to predict: "enrollment only", "event
 only", or "enrollment and event". By default, it is set to
@@ -85,7 +85,7 @@ design-stage event prediction.}
 \item{dropout_model}{The dropout model used to analyze the dropout data
 which can be set to one of the following options: "exponential",
 "Weibull", "log-normal", or "piecewise exponential". By default,
-it is set to "Weibull".}
+it is set to "exponential".}
 
 \item{piecewiseDropoutTime}{A vector that specifies the time
 intervals for the piecewise exponential dropout distribution.

@@ -7,8 +7,8 @@
 summarizeObserved(df, to_predict = "enrollment and event", showplot = TRUE)
 }
 \arguments{
-\item{df}{The subject-level data, including \code{randdt} and
-\code{cutoffdt} for enrollment prediction,
+\item{df}{The subject-level data, including \code{trialsdt},
+\code{randdt}, \code{cutoffdt} for enrollment prediction,
 as well as \code{time}, \code{event} and \code{dropout}
 for event prediction.}
 

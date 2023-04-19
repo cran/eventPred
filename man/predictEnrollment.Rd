@@ -17,7 +17,7 @@ predictEnrollment(
 )
 }
 \arguments{
-\item{df}{The subject-level enrollment data, including
+\item{df}{The subject-level enrollment data, including \code{trialsdt},
 \code{randdt} and \code{cutoffdt}. By default, it is set to
 \code{NULL} for enrollment prediction at the design stage.}
 

@@ -1,7 +1,7 @@
 Package: eventPred
 Title: Event Prediction
-Version: 0.1.0
-Date: 2023-03-20
+Version: 0.1.1
+Date: 2023-04-17
 Authors@R: 
     person("Kaifeng", "Lu", , "kaifenglu@gmail.com", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0002-6160-7119"))
@@ -17,8 +17,8 @@ Imports: dplyr (>= 1.1.0), rlang (>= 1.0.6), plotly (>= 4.10.1),
 Depends: R (>= 2.10)
 LazyData: true
 NeedsCompilation: no
-Packaged: 2023-04-14 04:37:24 UTC; kaife
+Packaged: 2023-04-17 06:11:06 UTC; kaife
 Author: Kaifeng Lu [aut, cre] (<https://orcid.org/0000-0002-6160-7119>)
 Maintainer: Kaifeng Lu <kaifenglu@gmail.com>
 Repository: CRAN
-Date/Publication: 2023-04-14 05:00:02 UTC
+Date/Publication: 2023-04-19 07:40:05 UTC

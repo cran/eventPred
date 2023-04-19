@@ -13,7 +13,7 @@ fitEnrollment(
 )
 }
 \arguments{
-\item{df}{The subject-level enrollment data, including
+\item{df}{The subject-level enrollment data, including \code{trialsdt},
 \code{randdt} and \code{cutoffdt}.}
 
 \item{enroll_model}{The enrollment model which can be specified as

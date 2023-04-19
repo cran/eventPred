@@ -2,10 +2,10 @@
 #' @description Performs enrollment and event prediction by utilizing
 #'   observed data and specified enrollment and event models.
 #'
-#' @param df The subject-level enrollment and event data,
-#'   including \code{randdt}, \code{cutoffdt}, \code{time}, \code{event},
-#'   and \code{dropout}. By default, it is set to \code{NULL} for
-#'   enrollment and event prediction at the design stage.
+#' @param df The subject-level enrollment and event data, including
+#'   \code{trialsdt}, \code{randdt}, \code{cutoffdt}, \code{time},
+#'   \code{event}, and \code{dropout}. By default, it is set to
+#'   \code{NULL} for enrollment and event prediction at the design stage.
 #' @param to_predict Specifies what to predict: "enrollment only", "event
 #'   only", or "enrollment and event". By default, it is set to
 #'   "enrollment and event".
@@ -41,7 +41,7 @@
 #' @param dropout_model The dropout model used to analyze the dropout data
 #'   which can be set to one of the following options: "exponential",
 #'   "Weibull", "log-normal", or "piecewise exponential". By default,
-#'   it is set to "Weibull".
+#'   it is set to "exponential".
 #' @param piecewiseDropoutTime A vector that specifies the time
 #'   intervals for the piecewise exponential dropout distribution.
 #'   Must start with 0, e.g., c(0, 60) breaks the time axis into 2
@@ -154,7 +154,7 @@ getPrediction <- function(
     enroll_model_parameter = NULL,
     event_model = "model averaging", piecewiseSurvivalTime = 0,
     event_model_parameter = NULL,
-    dropout_model = "weibull", piecewiseDropoutTime = 0,
+    dropout_model = "exponential", piecewiseDropoutTime = 0,
     dropout_model_parameter = NULL,
     fixedFollowup = FALSE, followupTime = 365,
     pilevel = 0.90, nyears = 4, nreps = 500,
@@ -392,10 +392,11 @@ getPrediction <- function(
   if (!is.null(df)) {
     df <- dplyr::as_tibble(df)
     names(df) <- tolower(names(df))
+    df$trialsdt <- as.Date(df$trialsdt)
     df$randdt <- as.Date(df$randdt)
     df$cutoffdt <- as.Date(df$cutoffdt)
 
-    trialsdt = min(df$randdt)
+    trialsdt = df$trialsdt[1]
     cutoffdt = df$cutoffdt[1]
 
     # summarize observed data
@@ -915,54 +916,69 @@ getPrediction <- function(
 
 
   # output results
-  if (!is.null(df)) { # analysis stage prediction
+  if (is.null(df)) { # design stage prediction
     if (tolower(to_predict) == "enrollment only") {
       if (showplot) print(enroll_pred$enroll_pred_plot)
 
-      list(observed = observed, enroll_fit = enroll_fit,
-           enroll_pred = enroll_pred)
-    } else if (tolower(to_predict) == "event only") {
-      if (showplot) print(event_pred$event_pred_plot)
-
-      if (tolower(dropout_model) != "none") {
-        list(observed = observed, event_fit = event_fit,
-             dropout_fit = dropout_fit, event_pred = event_pred)
-      } else {
-        list(observed = observed, event_fit = event_fit,
-             event_pred = event_pred)
-      }
-    } else if (tolower(to_predict) == "enrollment and event") {
-      if (showplot) print(event_pred$event_pred_plot)
-
-      if (tolower(dropout_model) != "none") {
-        list(observed = observed, enroll_fit = enroll_fit,
-             enroll_pred = enroll_pred, event_fit = event_fit,
-             dropout_fit = dropout_fit, event_pred = event_pred)
-      } else {
-        list(observed = observed, enroll_fit = enroll_fit,
-             enroll_pred = enroll_pred, event_fit = event_fit,
-             event_pred = event_pred)
-      }
-    }
-  } else { # design stage prediction
-    if (tolower(to_predict) == "enrollment only") {
-      if (showplot) print(enroll_pred$enroll_pred_plot)
-
-      list(enroll_fit = enroll_model_parameter, enroll_pred = enroll_pred)
+      list(stage = "Design stage",
+           to_predict = "Enrollment only",
+           enroll_fit = enroll_model_parameter, enroll_pred = enroll_pred)
     } else if (tolower(to_predict) == "enrollment and event") {
       if (showplot) print(event_pred$event_pred_plot)
 
       if (!is.null(dropout_model_parameter)) {
-        list(enroll_fit = enroll_model_parameter, enroll_pred = enroll_pred,
+        list(stage = "Design stage",
+             to_predict = "Enrollment and event",
+             enroll_fit = enroll_model_parameter, enroll_pred = enroll_pred,
              event_fit = event_model_parameter,
              dropout_fit = dropout_model_parameter, event_pred = event_pred)
       } else {
-        list(enroll_fit = enroll_model_parameter, enroll_pred = enroll_pred,
+        list(stage = "Design stage",
+             to_predict = "Enrollment and event",
+             enroll_fit = enroll_model_parameter, enroll_pred = enroll_pred,
              event_fit = event_model_parameter, event_pred = event_pred)
       }
     }
-  }
+  } else { # analysis stage prediction
+    if (tolower(to_predict) == "enrollment only") {
+      if (showplot) print(enroll_pred$enroll_pred_plot)
 
+      list(stage = "Real-time before enrollment completion",
+           to_predict = "Enrollment only",
+           observed = observed, enroll_fit = enroll_fit,
+           enroll_pred = enroll_pred)
+    } else if (tolower(to_predict) == "enrollment and event") {
+      if (showplot) print(event_pred$event_pred_plot)
+
+      if (tolower(dropout_model) != "none") {
+        list(stage = "Real-time before enrollment completion",
+             to_predict = "Enrollment and event",
+             observed = observed, enroll_fit = enroll_fit,
+             enroll_pred = enroll_pred, event_fit = event_fit,
+             dropout_fit = dropout_fit, event_pred = event_pred)
+      } else {
+        list(stage = "Real-time before enrollment completion",
+             to_predict = "Enrollment and event",
+             observed = observed, enroll_fit = enroll_fit,
+             enroll_pred = enroll_pred, event_fit = event_fit,
+             event_pred = event_pred)
+      }
+    } else if (tolower(to_predict) == "event only") {
+      if (showplot) print(event_pred$event_pred_plot)
+
+      if (tolower(dropout_model) != "none") {
+        list(stage = "Real-time after enrollment completion",
+             to_predict = "Event only",
+             observed = observed, event_fit = event_fit,
+             dropout_fit = dropout_fit, event_pred = event_pred)
+      } else {
+        list(stage = "Real-time after enrollment completion",
+             to_predict = "Event only",
+             observed = observed, event_fit = event_fit,
+             event_pred = event_pred)
+      }
+    }
+  }
 }
 
 

@@ -3,7 +3,7 @@
 #'   enrollment times for new subjects and provide a prediction
 #'   interval for the expected time to reach the enrollment target.
 #'
-#' @param df The subject-level enrollment data, including
+#' @param df The subject-level enrollment data, including \code{trialsdt},
 #'   \code{randdt} and \code{cutoffdt}. By default, it is set to
 #'   \code{NULL} for enrollment prediction at the design stage.
 #' @param target_n The target number of subjects to enroll in the study.
@@ -79,10 +79,11 @@ predictEnrollment <- function(df = NULL, target_n, enroll_fit, lags = 30,
   if (!is.null(df)) {
     df <- dplyr::as_tibble(df)
     names(df) <- tolower(names(df))
+    df$trialsdt <- as.Date(df$trialsdt)
     df$randdt <- as.Date(df$randdt)
     df$cutoffdt <- as.Date(df$cutoffdt)
 
-    trialsdt = min(df$randdt)
+    trialsdt = df$trialsdt[1]
     cutoffdt = df$cutoffdt[1]
     n0 = nrow(df)
     t0 = as.numeric(cutoffdt - trialsdt + 1)
@@ -284,11 +285,11 @@ predictEnrollment <- function(df = NULL, target_n, enroll_fit, lags = 30,
       dplyr::ungroup()
 
     # extend observed to cutoff date
-    if (max(dfa$t) < t0) {
-      dfa1 <- dfa %>%
-        dplyr::slice(dplyr::n()) %>%
-        dplyr::mutate(t = t0)
+    dfa1 <- dfa %>%
+      dplyr::slice(dplyr::n()) %>%
+      dplyr::mutate(t = t0)
 
+    if (max(dfa$t) < t0) {
       dfa <- dfa %>%
         dplyr::bind_rows(dfa1)
     }
@@ -321,14 +322,14 @@ predictEnrollment <- function(df = NULL, target_n, enroll_fit, lags = 30,
                         line = list(dash="dash"),
                         showlegend = FALSE) %>%
       plotly::layout(
-        annotations = list(x = cutoffdt, y = 0, yref = "paper",
+        annotations = list(x = cutoffdt, y = 0,
                            text = 'cutoff', xanchor = "left",
                            yanchor = "bottom",
                            font = list(size=12),
                            showarrow = FALSE),
         xaxis = list(title = "", zeroline = FALSE),
         yaxis = list(title = "Subjects", zeroline = FALSE),
-        legend = list(x = 0, y = 1.1, yanchor = "bottom",
+        legend = list(x = 0, y = 1.05, yanchor = "bottom",
                       orientation = "h"))
   } else {
     str1 <- paste0("Time from trial start until ", target_n, " subjects")
@@ -346,7 +347,7 @@ predictEnrollment <- function(df = NULL, target_n, enroll_fit, lags = 30,
       plotly::layout(xaxis = list(title = "Days since trial start",
                                   zeroline = FALSE),
                      yaxis = list(title = "Subjects", zeroline = FALSE),
-                     legend = list(x = 0, y = 1.1, yanchor = "bottom",
+                     legend = list(x = 0, y = 1.05, yanchor = "bottom",
                                    orientation = "h"))
   }
 

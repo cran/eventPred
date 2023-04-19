@@ -6,7 +6,7 @@
 #'   number of events.
 #'
 #' @param df The subject-level enrollment and event data,
-#'   including \code{randdt}, \code{cutoffdt},
+#'   including \code{trialsdt}, \code{randdt}, \code{cutoffdt},
 #'   \code{time}, \code{event}, and \code{dropout}. By default, it
 #'   is set to \code{NULL} for event prediction at the design stage.
 #' @param target_d The target number of events to reach in the study.
@@ -242,10 +242,11 @@ predictEvent <- function(df = NULL, target_d, newSubjects = NULL,
   if (!is.null(df)) {
     df <- dplyr::as_tibble(df)
     names(df) <- tolower(names(df))
+    df$trialsdt <- as.Date(df$trialsdt)
     df$randdt <- as.Date(df$randdt)
     df$cutoffdt <- as.Date(df$cutoffdt)
 
-    trialsdt = min(df$randdt)
+    trialsdt = df$trialsdt[1]
     cutoffdt = df$cutoffdt[1]
 
     df <- df %>%
@@ -295,11 +296,11 @@ predictEvent <- function(df = NULL, target_d, newSubjects = NULL,
       dplyr::ungroup()
 
     # extend observed to cutoff date
-    if (max(dfa$t) < t0) {
-      dfa1 <- dfa %>%
-        dplyr::slice(dplyr::n()) %>%
-        dplyr::mutate(t = t0)
+    dfa1 <- dfa %>%
+      dplyr::slice(dplyr::n()) %>%
+      dplyr::mutate(t = t0)
 
+    if (max(dfa$t) < t0) {
       dfa <- dfa %>%
         dplyr::bind_rows(dfa1)
     }
@@ -956,7 +957,9 @@ predictEvent <- function(df = NULL, target_d, newSubjects = NULL,
                                  .data$totalTime > .data$t),
                        .groups = "drop_last") %>%
       dplyr::mutate(lower = NA, upper = NA) %>%
-      dplyr::select(.data$t, .data$n, .data$lower, .data$upper)
+      dplyr::select(.data$t, .data$n, .data$lower, .data$upper) %>%
+      dplyr::bind_rows(dplyr::tibble(t = t0, n = r0,
+                                     lower = NA, upper = NA))
 
 
     # add time zero and concatenate events before and after data cut
@@ -1029,14 +1032,14 @@ predictEvent <- function(df = NULL, target_d, newSubjects = NULL,
         line = list(dash="dash"),
         showlegend = FALSE) %>%
       plotly::layout(
-        annotations = list(x = cutoffdt, y = 0, yref = "paper",
+        annotations = list(x = cutoffdt, y = 0,
                            text = 'cutoff', xanchor = "left",
                            yanchor = "bottom",
                            font = list(size=12),
                            showarrow = FALSE),
         xaxis = list(title = "", zeroline = FALSE),
         yaxis = list(zeroline = FALSE),
-        legend = list(x = 0, y = 1.1, yanchor = "bottom",
+        legend = list(x = 0, y = 1.05, yanchor = "bottom",
                       orientation = 'h'))
 
     if (showEvent) {
@@ -1070,7 +1073,7 @@ predictEvent <- function(df = NULL, target_d, newSubjects = NULL,
         xaxis = list(title = "Days since trial start",
                      zeroline = FALSE),
         yaxis = list(zeroline = FALSE),
-        legend = list(x = 0, y = 1.1, yanchor = "bottom",
+        legend = list(x = 0, y = 1.05, yanchor = "bottom",
                       orientation = 'h'))
 
     if (showEvent) {
