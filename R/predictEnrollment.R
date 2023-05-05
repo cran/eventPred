@@ -26,7 +26,7 @@
 #' @details
 #'
 #' The \code{enroll_fit} variable can be used for enrollment prediction
-#' at the design stage. A piecewise Poisson can be parameterized
+#' at the design stage. A piecewise Poisson model can be parameterized
 #' through the time intervals, \code{accrualTime}, which is
 #' treated as fixed, and the enrollment rates in the intervals,
 #' \code{accrualIntensity}, the log of which is used as the
@@ -36,6 +36,10 @@
 #' a very small variance being used to fix the parameter values.
 #' It should be noted that the B-spline model is not appropriate
 #' for use during the design stage.
+#'
+#' During the enrollment stage, \code{enroll_fit} is the enrollment model
+#' fit based on the observed data. The fitted enrollment model is used to
+#' generate enrollment times for new subjects.
 #'
 #' @return
 #' A list of prediction results, which includes important information
@@ -157,7 +161,8 @@ predictEnrollment <- function(df = NULL, target_n, enroll_fit, lags = 30,
         #   v(t) = mu(ti) + mu/(2*delta)*(t-ti)
         # which lies beneath mu(t), and then find tmax such that
         #   v(tmax) = muTime, which implies mu(tmax) > muTime
-        ti = log(2)/delta
+        # so that tmax > t
+        ti = log(2)/delta  # obtained by setting lambda(ti) = mu/(2*delta)
         tmax = (muTime - fmu_td(ti, theta[i,]))*2*delta/mu + ti
         interval = cbind(t0, tmax)
 
@@ -211,7 +216,7 @@ predictEnrollment <- function(df = NULL, target_n, enroll_fit, lags = 30,
     }
     u = enroll_fit$accrualTime
 
-    # mu(t[j]) - mu(t[j-1]) is standard exponential distribution, j=1,...,n1
+    # mu(t[j]) - mu(t[j-1]) is standard exponential distribution, t[0]=t0
     newEnrollment_pw <- function(t0, n1, theta, u, nreps) {
       df = dplyr::as_tibble(matrix(
         nrow = nreps*n1, ncol = 2,
@@ -264,7 +269,9 @@ predictEnrollment <- function(df = NULL, target_n, enroll_fit, lags = 30,
                      .groups = "drop_last") %>%
     dplyr::summarise(n = quantile(.data$nenrolled, probs = 0.5),
                      lower = quantile(.data$nenrolled, probs = plower),
-                     upper = quantile(.data$nenrolled, probs = pupper))
+                     upper = quantile(.data$nenrolled, probs = pupper),
+                     mean = mean(.data$nenrolled),
+                     var = var(.data$nenrolled))
 
 
   if (!is.null(df)) {
@@ -276,10 +283,15 @@ predictEnrollment <- function(df = NULL, target_n, enroll_fit, lags = 30,
     str3 <- paste0("Prediction interval: ", pred_date[2], ", ", pred_date[3])
     s1 <- paste0(str1, "\n", str2, "\n", str3, "\n")
 
+    # add day 1
+    df0 <- dplyr::tibble(t = 1, n = 0, lower = NA, upper = NA,
+                         mean = 0, var = 0)
+
     # arrival time for subjects already enrolled before data cut
     dfa <- df %>%
-      dplyr::mutate(lower = NA, upper = NA) %>%
-      dplyr::select(.data$t, .data$n, .data$lower, .data$upper) %>%
+      dplyr::mutate(lower = NA, upper = NA, mean = .data$n, var = 0) %>%
+      dplyr::select(.data$t, .data$n, .data$lower, .data$upper,
+                    .data$mean, .data$var) %>%
       dplyr::group_by(.data$t) %>%
       dplyr::slice(dplyr::n()) %>%
       dplyr::ungroup()
@@ -295,7 +307,8 @@ predictEnrollment <- function(df = NULL, target_n, enroll_fit, lags = 30,
     }
 
     # concatenate subjects enrolled before and after data cut
-    dfs <- dfa %>%
+    dfs <- df0 %>%
+      dplyr::bind_rows(dfa) %>%
       dplyr::bind_rows(dfb) %>%
       dplyr::mutate(date = as.Date(.data$t - 1, origin = trialsdt))
 
@@ -304,7 +317,7 @@ predictEnrollment <- function(df = NULL, target_n, enroll_fit, lags = 30,
     dfa <- dfs %>% dplyr::filter(is.na(.data$lower))
     dfb <- dfs %>% dplyr::filter(!is.na(.data$lower))
 
-    # plot the enrollment data with month as x-axis label
+    # plot the enrollment data with date as x-axis
     g1 <- plotly::plot_ly() %>%
       plotly::add_ribbons(data = dfb, x = ~date,
                           ymin = ~lower, ymax = ~upper,
@@ -337,6 +350,7 @@ predictEnrollment <- function(df = NULL, target_n, enroll_fit, lags = 30,
     str3 <- paste0("Prediction interval: ", pred_day[2], ", ", pred_day[3])
     s1 <- paste0(str1, "\n", str2, "\n", str3, "\n")
 
+    # plot the enrollment data with day as x-axis
     g1 <- plotly::plot_ly(dfb, x = ~t) %>%
       plotly::add_ribbons(ymin = ~lower, ymax = ~upper,
                           name = "prediction interval",

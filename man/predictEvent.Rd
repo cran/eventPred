@@ -126,6 +126,12 @@ the prior distribution of model parameters for the
 \code{j}-th treatment group. For the piecewise exponential
 dropout model, \code{piecewiseDropoutTime}
 should also be included to indicate the location of knots.
+
+Following the commencement of the trial, we obtain the event
+model fit and the dropout model fit based on the observed data,
+denoted as \code{event_fit} and \code{dropout_fit}, respectively.
+These fitted models are subsequently utilized to generate event
+and dropout times for both ongoing and new subjects in the trial.
 }
 \examples{
 

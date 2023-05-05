@@ -59,7 +59,7 @@ interval for the expected time to reach the enrollment target.
 }
 \details{
 The \code{enroll_fit} variable can be used for enrollment prediction
-at the design stage. A piecewise Poisson can be parameterized
+at the design stage. A piecewise Poisson model can be parameterized
 through the time intervals, \code{accrualTime}, which is
 treated as fixed, and the enrollment rates in the intervals,
 \code{accrualIntensity}, the log of which is used as the
@@ -69,6 +69,10 @@ specify the prior distribution of model parameters, with
 a very small variance being used to fix the parameter values.
 It should be noted that the B-spline model is not appropriate
 for use during the design stage.
+
+During the enrollment stage, \code{enroll_fit} is the enrollment model
+fit based on the observed data. The fitted enrollment model is used to
+generate enrollment times for new subjects.
 }
 \examples{
 
