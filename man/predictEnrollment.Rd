@@ -23,7 +23,7 @@ predictEnrollment(
 
 \item{target_n}{The target number of subjects to enroll in the study.}
 
-\item{enroll_fit}{the pre-fitted enrollment model used to
+\item{enroll_fit}{The pre-fitted enrollment model used to
 generate predictions.}
 
 \item{lags}{The day lags to compute the average enrollment rate to

@@ -112,8 +112,8 @@ specifying the prior distribution of model
 parameters for the \code{j}-th treatment group. For the
 piecewise exponential event model, \code{piecewiseSurvivalTime}
 should also be included to indicate the location of knots.
-It should be noted that the model averaging option is not
-appropriate for use during the design stage.
+It should be noted that the model averaging option and the spline
+option are not appropriate for use during the design stage.
 
 To specify the dropout model used during the design stage
 event prediction, the \code{dropout_fit} list should include

@@ -16,6 +16,8 @@ getPrediction(
   enroll_prior = NULL,
   event_model = "model averaging",
   piecewiseSurvivalTime = 0,
+  k = 0,
+  scale = "hazard",
   event_prior = NULL,
   dropout_model = "exponential",
   piecewiseDropoutTime = 0,
@@ -77,6 +79,19 @@ averaging".}
 intervals for the piecewise exponential survival distribution.
 Must start with 0, e.g., c(0, 60) breaks the time axis into 2
 event intervals: [0, 60) and [60, Inf). By default, it is set to 0.}
+
+\item{k}{The number of inner knots in the spline event model of
+Royston and Parmar (2002). The default
+\code{k=0} gives a Weibull, log-logistic or log-normal model,
+if \code{scale} is "hazard", "odds", or "normal", respectively.
+The knots are chosen as equally-spaced quantiles of the log
+uncensored survival times. The boundary knots are chosen as the
+minimum and maximum log uncensored survival times.}
+
+\item{scale}{If "hazard", the log cumulative hazard is modeled
+as a spline function. If "odds", the log cumulative odds is
+modeled as a spline function. If "normal", -qnorm(S(t)) is
+modeled as a spline function.}
 
 \item{event_prior}{The prior of event model parameters.}
 
@@ -173,7 +188,7 @@ the location of knots. It should be noted that the model averaging
 option is not appropriate for use as prior.
 
 The \code{dropout_prior} should be a list that
-includes \code{model} to specify the dropout model,
+includes \code{model} to specify the dropout model
 (exponential, weibull, log-normal, piecewise exponential),
 \code{ngroups} to indicate the number of treatment groups,
 \code{alloc} to indicate the treatment allocation within a

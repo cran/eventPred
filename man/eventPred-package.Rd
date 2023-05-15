@@ -33,9 +33,9 @@ be combined with the likelihood to yield the posterior distribution.
 
 The \code{eventPred} package also offers several time-to-event
 models, including exponential, Weibull, log-normal, piecewise
-exponential, and model-averaging of Weibull and log-normal.
-For time to dropout, exponential, Weibull,
-and log-normal distributions are considered. If enrollment
+exponential, model-averaging of Weibull and log-normal, and spline.
+For time to dropout, exponential, Weibull, log-normal, and
+piecewise exponential distributions are considered. If enrollment
 is complete, ongoing subjects who have not had the event of interest
 or dropped out of the study before the data cut contribute
 additional events in the future. Their event times are generated
@@ -68,7 +68,8 @@ following parameterization to achieve this goal:
 \itemize{
 \item Poisson: \code{theta = log(rate)}
 \item Time-decay: \code{theta = (log(mu), log(delta))}
-\item B-spline: no reparametrization is needed
+\item B-spline: no reparametrization is needed. The
+knots as considered fixed.
 \item Piecewise Poisson: \code{theta = log(rates)}.
 The left endpoints of time intervals, denoted as
 \code{accrualTime}, are considered fixed.
@@ -80,7 +81,11 @@ The left endpoints of time intervals, denoted as
 \item Exponential: \code{theta = log(rate)}
 \item Weibull: \code{theta = (log(shape), log(scale))}
 \item Log-normal: \code{theta = (meanlog, log(sdlog))}
-\item Piecewise exponential: \code{theta = log(rates)}
+\item Piecewise exponential: \code{theta = log(rates)}.
+The left endpoints of time intervals, denoted as
+\code{piecewiseSurvivalTime} for event model and
+\code{piecewiseDropoutTime} for dropout model, are
+considered fixed.
 \item Model averaging: \code{theta = (log(weibull$shape),
     log(weibull$scale), lnorm$meanlog, log(lnorm$sdlog))}.
 The covariance matrix for \code{theta} is structured
@@ -92,6 +97,9 @@ partitioned into two distinct blocks, with no
 off-diagonal elements connecting the two components.
 The weight assigned to the Weibull component, denoted as
 \code{w1}, is considered fixed.
+\item Spline: \code{theta} corresponds to the coefficients
+of basis vectors. The \code{knots} and \code{scale}
+are considered fixed.
 }
 }
 
@@ -101,13 +109,18 @@ rates per day, simply divide by 30.4375.
 }
 \references{
 Emilia Bagiella and Daniel F. Heitjan. Predicting analysis times in
-randomized clinical trials. Stat in Med. 2001;20:2055-2063.
+randomized clinical trials. Stat in Med. 2001; 20:2055-2063.
 
 Gui-shuang Ying and Daniel F. Heitjan. Weibull prediction of event
-times in clinical trials. Pharm Stat. 2008;7:107-120.
+times in clinical trials. Pharm Stat. 2008; 7:107-120.
 
 Xiaoxi Zhang and Qi Long. Stochastic modeling and prediction for
-accrual in clinical trials. Stat in Med. 2010;29:649-658.
+accrual in clinical trials. Stat in Med. 2010; 29:649-658.
+
+Patrick Royston and Mahesh K. B. Parmar. Flexible parametric
+proportional-hazards and proportional-odds models for censored
+survival data, with application to prognostic modelling and
+estimation of treatment effects. Stat in Med. 2002; 21:2175-2197.
 }
 \author{
 Kaifeng Lu, \email{kaifenglu@gmail.com}
