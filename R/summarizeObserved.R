@@ -7,14 +7,18 @@
 #' and time to dropout.
 #'
 #' @param df The subject-level data, including \code{trialsdt},
-#'   \code{randdt}, \code{cutoffdt} for enrollment prediction,
+#'   \code{randdt}, and \code{cutoffdt} for enrollment prediction,
 #'   as well as \code{time}, \code{event} and \code{dropout}
-#'   for event prediction.
+#'   for event prediction, and \code{treatment} for prediction
+#'   by treatment group.
 #' @param to_predict Specifies what to predict: "enrollment only",
 #'   "event only", or "enrollment and event". By default, it is set to
-#'   "enrollment and event".
+#'   "event only".
 #' @param showplot A Boolean variable to control whether or not to
 #'   show the observed data plots. By default, it is set to \code{TRUE}.
+#' @param by_treatment A Boolean variable to control whether or not to
+#'   summarize observed data by treatment group. By default,
+#'   it is set to \code{FALSE}.
 #'
 #'
 #' @return A list that includes a range of summary statistics,
@@ -30,12 +34,14 @@
 #'
 #' @export
 #'
-summarizeObserved <- function(df, to_predict = "enrollment and event",
-                              showplot = TRUE) {
+summarizeObserved <- function(df, to_predict = "event only",
+                              showplot = TRUE, by_treatment = FALSE) {
   erify::check_class(df, "data.frame")
   erify::check_content(tolower(to_predict),
                        c("enrollment only", "event only",
                          "enrollment and event"))
+  erify::check_bool(showplot)
+  erify::check_bool(by_treatment)
 
   df <- dplyr::as_tibble(df)
   names(df) <- tolower(names(df))
@@ -48,88 +54,223 @@ summarizeObserved <- function(df, to_predict = "enrollment and event",
   t0 = as.numeric(cutoffdt - trialsdt + 1)
   n0 = nrow(df)  # current number of subjects enrolled
 
+  if (any(df$randdt < trialsdt)) {
+    stop("randdt must be greater than or equal to trialsdt.")
+  }
+
+  if (any(df$randdt > cutoffdt)) {
+    stop("randdt must be less than or equal to cutoffdt.")
+  }
+
   if (grepl("event", to_predict, ignore.case = TRUE)) {
     d0 = sum(df$event)  # current number of events
     c0 = sum(df$dropout) # current number of dropouts
     r0 = sum(!(df$event | df$dropout)) # number of subjects at risk
+
+    if (any(df$time < 1)) {
+      stop("time must be greater than or equal to 1.")
+    }
+
+    if (any(df$event == 1 & df$dropout == 1)) {
+      stop("event and dropout cannot both be equal to 1 simultaneously.")
+    }
+
+    if (any(df$time > as.numeric(cutoffdt - df$randdt + 1))) {
+      stop("time must be less than or equal to cutoffdt - randdt + 1.")
+    }
+
+    ongoingSubjects <- df %>%
+      dplyr::filter(.data$event == 0 & .data$dropout == 0)
+
+    if (any(ongoingSubjects$time !=
+            as.numeric(cutoffdt - ongoingSubjects$randdt + 1))) {
+      stop("time must be equal to cutoffdt - randdt + 1 for ongoing subjects.")
+    }
   }
 
-  # enrollment data
-  adsl <- df %>%
-    dplyr::arrange(.data$randdt) %>%
-    dplyr::mutate(n = dplyr::row_number(),
-                  parameter = "Enrollment",
-                  date = .data$randdt)
+  if (by_treatment) {
+    ngroups = length(table(df$treatment))
+  } else {
+    ngroups = 1
+  }
 
-  # remove duplicate
-  adslu <- adsl %>%
-    dplyr::group_by(.data$randdt) %>%
-    dplyr::slice(dplyr::n()) %>%
-    dplyr::ungroup() %>%
-    dplyr::select(.data$n, .data$parameter, .data$date)
+  if (ngroups == 1) {
+    by_treatment = FALSE
+  }
 
-  # dummy subject to initialize time axis at trial start
-  adsl0 <- dplyr::tibble(n = 0, parameter = "Enrollment", date = trialsdt)
+  # enrollment and event data
+  if (!by_treatment) {
+    adsl <- df %>%
+      dplyr::arrange(.data$randdt) %>%
+      dplyr::mutate(n = dplyr::row_number(),
+                    parameter = "Enrollment",
+                    date = .data$randdt)
 
-  # extend enrollment information to cutoff date
-  adsl1 <- adsl %>%
-    dplyr::slice(dplyr::n()) %>%
-    dplyr::mutate(date = cutoffdt) %>%
-    dplyr::select(.data$n, .data$parameter, .data$date)
-
-
-
-  if (grepl("event", to_predict, ignore.case = TRUE)) {
-    # time to event data
-    adtte <- df %>%
-      dplyr::mutate(adt = as.Date(.data$time - 1, origin = .data$randdt)) %>%
-      dplyr::arrange(.data$adt) %>%
-      dplyr::mutate(n = cumsum(.data$event),
-                    parameter = "Event",
-                    date = .data$adt)
-
-    adtteu <- adtte %>%
-      dplyr::group_by(.data$adt) %>%
+    # remove duplicate
+    adslu <- adsl %>%
+      dplyr::group_by(.data$randdt) %>%
       dplyr::slice(dplyr::n()) %>%
       dplyr::ungroup() %>%
       dplyr::select(.data$n, .data$parameter, .data$date)
 
     # dummy subject to initialize time axis at trial start
-    adtte0 <- dplyr::tibble(n = 0, parameter = "Event", date = trialsdt)
+    adsl0 <- dplyr::tibble(n = 0, parameter = "Enrollment", date = trialsdt)
+
+    # extend enrollment information to cutoff date
+    adsl1 <- adsl %>%
+      dplyr::slice(dplyr::n()) %>%
+      dplyr::mutate(date = cutoffdt) %>%
+      dplyr::select(.data$n, .data$parameter, .data$date)
 
 
-    # combine enrollment and time to event data
-    ad <- adsl0 %>%
-      dplyr::bind_rows(adslu) %>%
-      dplyr::bind_rows(adsl1) %>%
-      dplyr::bind_rows(adtte0) %>%
-      dplyr::bind_rows(adtteu)
+    if (grepl("event", to_predict, ignore.case = TRUE)) {
+      # time to event data
+      adtte <- df %>%
+        dplyr::mutate(adt = as.Date(.data$time - 1, origin = .data$randdt)) %>%
+        dplyr::arrange(.data$adt) %>%
+        dplyr::mutate(n = cumsum(.data$event),
+                      parameter = "Event",
+                      date = .data$adt)
+
+      # remove duplicate
+      adtteu <- adtte %>%
+        dplyr::group_by(.data$adt) %>%
+        dplyr::slice(dplyr::n()) %>%
+        dplyr::ungroup() %>%
+        dplyr::select(.data$n, .data$parameter, .data$date)
+
+      # dummy subject to initialize time axis at trial start
+      adtte0 <- dplyr::tibble(n = 0, parameter = "Event", date = trialsdt)
+
+      # combine enrollment and time to event data
+      ad <- adsl0 %>%
+        dplyr::bind_rows(adslu) %>%
+        dplyr::bind_rows(adsl1) %>%
+        dplyr::bind_rows(adtte0) %>%
+        dplyr::bind_rows(adtteu)
+    } else {
+      ad <- adsl0 %>%
+        dplyr::bind_rows(adslu) %>%
+        dplyr::bind_rows(adsl1)
+    }
   } else {
-    ad <- adsl0 %>%
-      dplyr::bind_rows(adslu) %>%
-      dplyr::bind_rows(adsl1)
-  }
+    adsl <- df %>%
+      dplyr::group_by(.data$treatment) %>%
+      dplyr::arrange(.data$randdt) %>%
+      dplyr::mutate(n = dplyr::row_number(),
+                    parameter = "Enrollment",
+                    date = .data$randdt) %>%
+      dplyr::ungroup()
 
+    # remove duplicate
+    adslu <- adsl %>%
+      dplyr::group_by(.data$treatment, .data$randdt) %>%
+      dplyr::slice(dplyr::n()) %>%
+      dplyr::ungroup() %>%
+      dplyr::select(.data$treatment, .data$n, .data$parameter, .data$date)
+
+    # dummy subject to initialize time axis at trial start
+    adsl0 <- dplyr::tibble(treatment = 1:ngroups,
+                           n = 0,
+                           parameter = "Enrollment",
+                           date = trialsdt)
+
+    # extend enrollment information to cutoff date
+    adsl1 <- adsl %>%
+      dplyr::group_by(.data$treatment) %>%
+      dplyr::slice(dplyr::n()) %>%
+      dplyr::mutate(date = cutoffdt) %>%
+      dplyr::select(.data$treatment, .data$n, .data$parameter, .data$date) %>%
+      dplyr::ungroup()
+
+
+    if (grepl("event", to_predict, ignore.case = TRUE)) {
+      # time to event data
+      adtte <- df %>%
+        dplyr::group_by(.data$treatment) %>%
+        dplyr::mutate(adt = as.Date(.data$time - 1, origin = .data$randdt)) %>%
+        dplyr::arrange(.data$adt) %>%
+        dplyr::mutate(n = cumsum(.data$event),
+                      parameter = "Event",
+                      date = .data$adt) %>%
+        dplyr::ungroup()
+
+      # remove duplicate
+      adtteu <- adtte %>%
+        dplyr::group_by(.data$treatment, .data$adt) %>%
+        dplyr::slice(dplyr::n()) %>%
+        dplyr::ungroup() %>%
+        dplyr::select(.data$treatment, .data$n, .data$parameter, .data$date)
+
+      # dummy subject to initialize time axis at trial start
+      adtte0 <- dplyr::tibble(treatment = 1:ngroups,
+                              n = 0,
+                              parameter = "Event",
+                              date = trialsdt)
+
+      # combine enrollment and time to event data
+      ad <- adsl0 %>%
+        dplyr::bind_rows(adslu) %>%
+        dplyr::bind_rows(adsl1) %>%
+        dplyr::bind_rows(adtte0) %>%
+        dplyr::bind_rows(adtteu)
+    } else {
+      ad <- adsl0 %>%
+        dplyr::bind_rows(adslu) %>%
+        dplyr::bind_rows(adsl1)
+    }
+
+    # treatment group label
+    ad <- ad %>%
+      dplyr::mutate(treatmentc = paste0("treatment=", .data$treatment))
+  }
 
   # plot cumulative enrollment and event data
-  if (length(unique(ad$parameter)) > 1) {
-    cumAccrual <- plotly::plot_ly(
-      ad, x=~date, y=~n, color=~parameter, colors=c("blue", "red")) %>%
-      plotly::add_lines(line = list(shape = "hv")) %>%
-      plotly::layout(
-        xaxis = list(title = ""),
-        yaxis = list(zeroline = FALSE),
-        legend = list(x = 0, y = 1.05, yanchor = "bottom", orientation = 'h'))
-  } else {
-    cumAccrual <- plotly::plot_ly(ad, x=~date, y=~n) %>%
-      plotly::add_lines(line = list(shape = "hv")) %>%
-      plotly::layout(
-        xaxis = list(title = ""),
-        yaxis = list(zeroline = FALSE),
-        title = list(text = "Cumulative enrollment"))
-  }
+  if (!by_treatment) {
+    if (length(unique(ad$parameter)) > 1) {
+      cumAccrual <- plotly::plot_ly(
+        ad, x=~date, y=~n, color=~parameter, colors=c("blue", "red")) %>%
+        plotly::add_lines(line = list(shape = "hv")) %>%
+        plotly::layout(
+          xaxis = list(title = ""),
+          yaxis = list(zeroline = FALSE),
+          legend = list(x = 0, y = 1.05, yanchor = "bottom",
+                        orientation = 'h'))
+    } else {
+      cumAccrual <- plotly::plot_ly(ad, x=~date, y=~n) %>%
+        plotly::add_lines(line = list(shape = "hv")) %>%
+        plotly::layout(
+          xaxis = list(title = ""),
+          yaxis = list(zeroline = FALSE),
+          title = list(text = "Cumulative enrollment"))
+    }
 
-  if (showplot) print(cumAccrual)
+    if (showplot) print(cumAccrual)
+  } else {
+    if (length(unique(ad$parameter)) > 1) {
+      cumAccrual <- plotly::plot_ly(
+        ad, x=~date, y=~n, color=~parameter, colors=c("blue", "red"),
+        linetype=~treatmentc) %>%
+        plotly::add_lines(line = list(shape = "hv")) %>%
+        plotly::layout(
+          xaxis = list(title = ""),
+          yaxis = list(zeroline = FALSE),
+          legend = list(x = 0, y = 1.05, yanchor = "bottom",
+                        orientation = 'h'))
+    } else {
+      cumAccrual <- plotly::plot_ly(
+        ad, x=~date, y=~n, linetype=~treatmentc) %>%
+        plotly::add_lines(line = list(shape = "hv")) %>%
+        plotly::layout(
+          xaxis = list(title = ""),
+          yaxis = list(zeroline = FALSE),
+          legend = list(x = 0, y = 1, yanchor = "middle",
+                        orientation = 'h'),
+          title = list(text = "Cumulative enrollment"))
+    }
+
+    if (showplot) print(cumAccrual)
+  }
 
   # daily enrollment plot with loess smoothing
   if (grepl("enrollment", to_predict, ignore.case = TRUE)) {
@@ -141,59 +282,118 @@ summarizeObserved <- function(df, to_predict = "enrollment and event",
       dplyr::mutate(date = as.Date(.data$day - 1, origin = trialsdt))
 
     fit <- loess.smooth(enroll$date, enroll$n,
-                        span = 1/3, degree = 1,
-                        family = "gaussian")
+                        span = 1/3, degree = 1, family = "gaussian")
 
-    dailyAccrual <- plotly::plot_ly(enroll, x=~date, y=~n, name="observed",
-                                    type='scatter', mode='markers') %>%
+    dailyAccrual <- plotly::plot_ly(
+      enroll, x=~date, y=~n, name="observed", type='scatter',
+      mode='markers') %>%
       plotly::add_lines(x = fit$x, y = fit$y, name="loess") %>%
-      plotly::layout(xaxis = list(title = ""),
-                     yaxis = list(zeroline = FALSE),
-                     title = list(text = "Daily enrollment")) %>%
+      plotly::layout(
+        xaxis = list(title = ""),
+        yaxis = list(zeroline = FALSE),
+        title = list(text = "Daily enrollment")) %>%
       plotly::hide_legend()
+
     if (showplot) print(dailyAccrual)
   }
 
-
   # Kaplan-Meier plot
   if (grepl("event", to_predict, ignore.case = TRUE)) {
-    kmfitEvent <- survival::survfit(survival::Surv(time, event) ~ 1,
-                                    data = adtte)
-
-    kmdfEvent <- dplyr:: tibble(time = 0, surv = 1) %>%
-      dplyr::bind_rows(dplyr::tibble(time = kmfitEvent$time,
-                                     surv = kmfitEvent$surv))
-
-    kmEvent <- plotly::plot_ly(kmdfEvent, x=~time, y=~surv) %>%
-      plotly::add_lines(line = list(shape = "hv")) %>%
-      plotly::layout(xaxis = list(title = "Days since randomization",
-                                  zeroline = FALSE),
-                     yaxis = list(title = "Survival probability",
-                                  zeroline = FALSE),
-                     title = list(
-                       text = "Kaplan-Meier plot for time to event"))
-    if (showplot) print(kmEvent)
-
-
-    # time to dropout
-    kmfitDropout <- survival::survfit(survival::Surv(time, dropout) ~ 1,
+    if (!by_treatment) {
+      kmfitEvent <- survival::survfit(survival::Surv(time, event) ~ 1,
                                       data = adtte)
-    kmdfDropout <- dplyr::tibble(time = 0, surv = 1) %>%
-      dplyr::bind_rows(dplyr::tibble(time = kmfitDropout$time,
-                                     surv = kmfitDropout$surv))
 
-    kmDropout <- plotly::plot_ly(kmdfDropout, x=~time, y=~surv) %>%
-      plotly::add_lines(line = list(shape = "hv")) %>%
-      plotly::layout(xaxis = list(title = "Days since randomization",
-                                  zeroline = FALSE),
-                     yaxis = list(title = "Survival probability",
-                                  zeroline = FALSE),
-                     title = list(
-                       text = "Kaplan-Meier plot for time to dropout"))
-    if (showplot) print(kmDropout)
+      kmdfEvent <- dplyr::tibble(time = kmfitEvent$time,
+                                 surv = kmfitEvent$surv)
+      # add day 1
+      if (min(kmdfEvent$time) > 1) {
+        kmdfEvent <- dplyr::tibble(time = 1, surv = 1) %>%
+          dplyr::bind_rows(kmdfEvent)
+      }
 
+      kmEvent <- plotly::plot_ly(kmdfEvent, x=~time, y=~surv) %>%
+        plotly::add_lines(line = list(shape = "hv")) %>%
+        plotly::layout(
+          xaxis = list(title = "Days since randomization", zeroline = FALSE),
+          yaxis = list(title = "Survival probability", zeroline = FALSE),
+          title = list(text = "Kaplan-Meier plot for time to event"))
+
+      if (showplot) print(kmEvent)
+
+      # time to dropout
+      kmfitDropout <- survival::survfit(survival::Surv(time, dropout) ~ 1,
+                                        data = adtte)
+
+      kmdfDropout <- dplyr::tibble(time = kmfitDropout$time,
+                                   surv = kmfitDropout$surv)
+      if (min(kmdfDropout$time) > 1) {
+        kmdfDropout <- dplyr::tibble(time = 1, surv = 1) %>%
+          dplyr::bind_rows(kmdfDropout)
+      }
+
+      kmDropout <- plotly::plot_ly(kmdfDropout, x=~time, y=~surv) %>%
+        plotly::add_lines(line = list(shape = "hv")) %>%
+        plotly::layout(
+          xaxis = list(title = "Days since randomization", zeroline = FALSE),
+          yaxis = list(title = "Survival probability", zeroline = FALSE),
+          title = list(text = "Kaplan-Meier plot for time to dropout"))
+
+      if (showplot) print(kmDropout)
+    } else { # by treatment
+      kmfitEvent <- survival::survfit(survival::Surv(time, event) ~ treatment,
+                                      data = adtte)
+      treatment <- attr(kmfitEvent$strata, "names")
+
+      kmdfEvent <- dplyr::tibble(treatment = treatment, time = 1,
+                                 surv = 1) %>%
+        dplyr::bind_rows(dplyr::tibble(
+          treatment = rep(treatment, kmfitEvent$strata),
+          time = kmfitEvent$time,
+          surv = kmfitEvent$surv)) %>%
+        dplyr::group_by(.data$treatment, .data$time) %>%
+        dplyr::slice(dplyr::n()) %>%
+        dplyr::ungroup()
+
+      kmEvent <- plotly::plot_ly(
+        kmdfEvent, x=~time, y=~surv, linetype=~treatment) %>%
+        plotly::add_lines(line = list(shape = "hv")) %>%
+        plotly::layout(
+          xaxis = list(title = "Days since randomization", zeroline = FALSE),
+          yaxis = list(title = "Survival probability", zeroline = FALSE),
+          legend = list(x = 0, y = 1,  yanchor = "middle",
+                        orientation = 'h'),
+          title = list(text = "Kaplan-Meier plot for time to event"))
+
+      if (showplot) print(kmEvent)
+
+      # time to dropout
+      kmfitDropout <- survival::survfit(survival::Surv(time, dropout) ~
+                                          treatment, data = adtte)
+      treatment <- attr(kmfitDropout$strata, "names")
+
+      kmdfDropout <- dplyr::tibble(treatment = treatment, time = 1,
+                                   surv = 1) %>%
+        dplyr::bind_rows(dplyr::tibble(
+          treatment = rep(treatment, kmfitDropout$strata),
+          time = kmfitDropout$time,
+          surv = kmfitDropout$surv)) %>%
+        dplyr::group_by(.data$treatment, .data$time) %>%
+        dplyr::slice(dplyr::n()) %>%
+        dplyr::ungroup()
+
+      kmDropout <- plotly::plot_ly(
+        kmdfDropout, x=~time, y=~surv, linetype=~treatment) %>%
+        plotly::add_lines(line = list(shape = "hv")) %>%
+        plotly::layout(
+          xaxis = list(title = "Days since randomization", zeroline = FALSE),
+          yaxis = list(title = "Survival probability", zeroline = FALSE),
+          legend = list(x = 0, y = 1, yanchor = "middle",
+                        orientation = 'h'),
+          title = list(text = "Kaplan-Meier plot for time to dropout"))
+
+      if (showplot) print(kmDropout)
+    }
   }
-
 
   # output
   if (grepl("event", to_predict, ignore.case = TRUE)) {

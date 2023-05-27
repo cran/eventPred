@@ -37,6 +37,7 @@ parameters, \code{theta}, the covariance matrix, \code{vtheta}, and
 the Bayesian Information Criterion, \code{bic}, as well as
 the design matrix \code{x} for the B-spline enrollment model, and
 \code{accrualTime} for the piecewise Poisson enrollment model.
+
 The fitted enrollment curve is also returned.
 }
 \description{

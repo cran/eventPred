@@ -20,21 +20,24 @@ predictEvent(
   showDropout = FALSE,
   showOngoing = FALSE,
   showsummary = TRUE,
-  showplot = TRUE
+  showplot = TRUE,
+  by_treatment = FALSE
 )
 }
 \arguments{
 \item{df}{The subject-level enrollment and event data,
 including \code{trialsdt}, \code{randdt}, \code{cutoffdt},
-\code{time}, \code{event}, and \code{dropout}. By default, it
+\code{time}, \code{event}, and \code{dropout}. The data should also
+include \code{treatment} for by-treatment prediction. By default, it
 is set to \code{NULL} for event prediction at the design stage.}
 
 \item{target_d}{The target number of events to reach in the study.}
 
 \item{newSubjects}{The enrollment data for new subjects including
-\code{draw} and \code{arrivalTime}. By default,
-it is set to \code{NULL}, indicating the completion of
-subject enrollment.}
+\code{draw} and \code{arrivalTime}. The data should also include
+\code{treatment} for prediction by treatment. By default,
+it is set to \code{NULL},
+indicating the completion of subject enrollment.}
 
 \item{event_fit}{The pre-fitted event model used to generate
 predictions.}
@@ -81,6 +84,10 @@ show the prediction summary. By default, it is set to \code{TRUE}.}
 
 \item{showplot}{A Boolean variable to control whether or not to
 show the prediction plot. By default, it is set to \code{TRUE}.}
+
+\item{by_treatment}{A Boolean variable to control whether or not to
+predict event by treatment group. By default,
+it is set to \code{FALSE}.}
 }
 \value{
 A list of prediction results which includes important
@@ -102,30 +109,29 @@ To ensure successful event prediction at the design stage, it is
 important to provide the \code{newSubjects} data set.
 
 To specify the event model used during the design-stage event
-prediction, the \code{event_fit} list should include the event model,
-\code{model}, the number of treatment groups,
-\code{ngroups}, the treatment allocation within a randomization
-block, \code{alloc}, the model parameters, \code{theta},
-and the covariance matrix, \code{vtheta}, both of which
-have \code{ngroups} blocks with the \code{j}-th block
-specifying the prior distribution of model
-parameters for the \code{j}-th treatment group. For the
-piecewise exponential event model, \code{piecewiseSurvivalTime}
-should also be included to indicate the location of knots.
-It should be noted that the model averaging option and the spline
-option are not appropriate for use during the design stage.
+prediction, the \code{event_fit} be a list with one element
+per treatment. For each treatment, the element should include \code{w}
+to specify the weight of the treatment in a randomization block,
+\code{model} to specify the event model
+(exponential, weibull, log-normal, or piecewise exponential),
+\code{theta} and \code{vtheta} to indicate
+the parameter values and the covariance matrix.
+For the piecewise exponential event model, the list
+should also include \code{piecewiseSurvivalTime} to indicate
+the location of knots. It should be noted that the model averaging
+and spline options are not appropriate for use during the design stage.
 
 To specify the dropout model used during the design stage
-event prediction, the \code{dropout_fit} list should include
-the dropout model, \code{model}, the number of treatment groups,
-\code{ngroups}, the treatment allocation within a randomization
-block, \code{alloc}, the model parameters, \code{theta}, and
-the covariance matrix ,\code{vtheta}, both of which have
-\code{ngroups} blocks with the \code{j}-th block specifying
-the prior distribution of model parameters for the
-\code{j}-th treatment group. For the piecewise exponential
-dropout model, \code{piecewiseDropoutTime}
-should also be included to indicate the location of knots.
+event prediction, the \code{dropout_fit} should be a list
+with one element per treatment. For each treatment, the element
+should include \code{w} to specify the weight of the treatment
+in a randomization block, \code{model} to specify the dropout model
+(exponential, weibull, log-normal, or piecewise exponential),
+\code{theta} and \code{vtheta} to indicate
+the parameter values and the covariance matrix.
+For the piecewise exponential dropout model, the list
+should also include \code{piecewiseDropoutTime} to indicate
+the location of knots.
 
 Following the commencement of the trial, we obtain the event
 model fit and the dropout model fit based on the observed data,

@@ -8,12 +8,14 @@ fitDropout(
   df,
   dropout_model = "exponential",
   piecewiseDropoutTime = 0,
-  showplot = TRUE
+  showplot = TRUE,
+  by_treatment = FALSE
 )
 }
 \arguments{
 \item{df}{The subject-level dropout data, including \code{time} and
-\code{dropout}.}
+\code{dropout}. The data should also include \code{treatment}
+coded as 1, 2, and so on, for fitting the dropout model by treatment.}
 
 \item{dropout_model}{The dropout model used to analyze the dropout data
 which can be set to one of the following options: "exponential",
@@ -28,6 +30,10 @@ event intervals: [0, 60) and [60, Inf). By default, it is set to 0.}
 \item{showplot}{A Boolean variable to control whether or not to
 show the fitted time-to-dropout survival curve. By default, it is
 set to \code{TRUE}.}
+
+\item{by_treatment}{A Boolean variable to control whether or not to
+fit the time-to-dropout data by treatment group. By default,
+it is set to \code{FALSE}.}
 }
 \value{
 A list of results from the model fit including key information
@@ -39,7 +45,11 @@ If the piecewise exponential model is used, the location
 of knots used in the model, \code{piecewiseDropoutTime}, will
 be included in the list of results.
 
-The fitted time-to-dropout curve is also returned.
+When fitting the dropout model by treatment, the outcome is presented
+as a list of lists, where each list element corresponds to a
+specific treatment group.
+
+The fitted time-to-dropout survival curve is also returned.
 }
 \description{
 Fits a specified time-to-dropout model to the dropout data.

@@ -4,20 +4,30 @@
 \alias{summarizeObserved}
 \title{Summarize observed data}
 \usage{
-summarizeObserved(df, to_predict = "enrollment and event", showplot = TRUE)
+summarizeObserved(
+  df,
+  to_predict = "event only",
+  showplot = TRUE,
+  by_treatment = FALSE
+)
 }
 \arguments{
 \item{df}{The subject-level data, including \code{trialsdt},
-\code{randdt}, \code{cutoffdt} for enrollment prediction,
+\code{randdt}, and \code{cutoffdt} for enrollment prediction,
 as well as \code{time}, \code{event} and \code{dropout}
-for event prediction.}
+for event prediction, and \code{treatment} for prediction
+by treatment group.}
 
 \item{to_predict}{Specifies what to predict: "enrollment only",
 "event only", or "enrollment and event". By default, it is set to
-"enrollment and event".}
+"event only".}
 
 \item{showplot}{A Boolean variable to control whether or not to
 show the observed data plots. By default, it is set to \code{TRUE}.}
+
+\item{by_treatment}{A Boolean variable to control whether or not to
+summarize observed data by treatment group. By default,
+it is set to \code{FALSE}.}
 }
 \value{
 A list that includes a range of summary statistics,

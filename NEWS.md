@@ -1,3 +1,10 @@
+# eventPred 0.1.4
+
+- add validity checks for input dataset variables
+- update totalTime calculation for observed data
+- use method="Nelder-Mead" as the default optimization algorithm for flexsurvspline
+- add by-treatment prediction
+
 # eventPred 0.1.3
 
 - update the description of internal datasets

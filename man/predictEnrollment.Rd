@@ -13,13 +13,18 @@ predictEnrollment(
   nyears = 4,
   nreps = 500,
   showsummary = TRUE,
-  showplot = TRUE
+  showplot = TRUE,
+  by_treatment = FALSE,
+  ngroups = 1,
+  alloc = NULL
 )
 }
 \arguments{
 \item{df}{The subject-level enrollment data, including \code{trialsdt},
-\code{randdt} and \code{cutoffdt}. By default, it is set to
-\code{NULL} for enrollment prediction at the design stage.}
+\code{randdt} and \code{cutoffdt}. The data should also include
+\code{treatment} for prediction by treatment group.
+By default, it is set to \code{NULL} for enrollment prediction
+at the design stage.}
 
 \item{target_n}{The target number of subjects to enroll in the study.}
 
@@ -44,6 +49,19 @@ show the prediction summary. By default, it is set to \code{TRUE}.}
 
 \item{showplot}{A Boolean variable to control whether or not to
 show the prediction plot. By default, it is set to \code{TRUE}.}
+
+\item{by_treatment}{A Boolean variable to control whether or not to
+predict enrollment by treatment group. By default,
+it is set to \code{FALSE}.}
+
+\item{ngroups}{The number of treatment groups for enrollment prediction
+at the design stage. By default, it is set to 1.
+It is replaced with the actual number of
+treatment groups in the observed data if \code{df} is not \code{NULL}.}
+
+\item{alloc}{The treatment allocation in a randomization block.
+By default, it is set to \code{NULL}, which yields equal allocation
+among the treatment groups.}
 }
 \value{
 A list of prediction results, which includes important information
@@ -75,7 +93,6 @@ fit based on the observed data. The fitted enrollment model is used to
 generate enrollment times for new subjects.
 }
 \examples{
-
 # Enrollment prediction at the design stage
 
 enroll_pred <- predictEnrollment(
@@ -85,6 +102,5 @@ enroll_pred <- predictEnrollment(
                     vtheta = diag(9)*1e-8,
                     accrualTime = seq(0, 8)*30.4375),
   pilevel = 0.90, nreps = 100)
-
 
 }

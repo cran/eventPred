@@ -32,13 +32,19 @@ getPrediction(
   showDropout = FALSE,
   showOngoing = FALSE,
   showsummary = TRUE,
-  showplot = TRUE
+  showplot = TRUE,
+  by_treatment = FALSE,
+  ngroups = 1,
+  alloc = NULL
 )
 }
 \arguments{
 \item{df}{The subject-level enrollment and event data, including
-\code{trialsdt}, \code{randdt}, \code{cutoffdt}, \code{time},
-\code{event}, and \code{dropout}. By default, it is set to
+\code{trialsdt}, \code{randdt}, and \code{cutoffdt} for
+enrollment prediction, and, additionally, \code{time}, \code{event},
+and \code{dropout} for event prediction. The data should also include
+\code{treatment} coded as 1, 2, and so on, for enrollment and
+event prediction by treatment. By default, it is set to
 \code{NULL} for enrollment and event prediction at the design stage.}
 
 \item{to_predict}{Specifies what to predict: "enrollment only", "event
@@ -68,8 +74,8 @@ By default, it is set to 0.}
 \item{enroll_prior}{The prior of enrollment model parameters.}
 
 \item{event_model}{The event model used to analyze the event data
-which can be set to one of the
-following options: "exponential", "Weibull", "log-normal",
+which can be set to one of the following options:
+"exponential", "Weibull", "log-normal",
 "piecewise exponential", or "model averaging". The model averaging
 uses the \code{exp(-bic/2)} weighting and combines Weibull and
 log-normal models. By default, it is set to "model
@@ -80,7 +86,7 @@ intervals for the piecewise exponential survival distribution.
 Must start with 0, e.g., c(0, 60) breaks the time axis into 2
 event intervals: [0, 60) and [60, Inf). By default, it is set to 0.}
 
-\item{k}{The number of inner knots in the spline event model of
+\item{k}{The number of inner knots of the spline event model of
 Royston and Parmar (2002). The default
 \code{k=0} gives a Weibull, log-logistic or log-normal model,
 if \code{scale} is "hazard", "odds", or "normal", respectively.
@@ -144,6 +150,18 @@ show the prediction summary. By default, it is set to \code{TRUE}.}
 
 \item{showplot}{A Boolean variable to control whether or not to
 show the plots. By default, it is set to \code{TRUE}.}
+
+\item{by_treatment}{A Boolean variable to control whether or not to
+predict by treatment group. By default, it is set to \code{FALSE}.}
+
+\item{ngroups}{The number of treatment groups for enrollment prediction
+at the design stage. By default, it is set to 1.
+It is replaced with the actual number of
+treatment groups in the observed data if \code{df} is not \code{NULL}.}
+
+\item{alloc}{The treatment allocation in a randomization block.
+By default, it is set to \code{NULL}, which yields equal allocation
+among the treatment groups.}
 }
 \value{
 A list that includes the fits of observed data models,
@@ -165,7 +183,7 @@ where \code{B(t)} represents the B-spline basis functions.
 
 The \code{enroll_prior} variable should be a list that
 includes \code{model} to specify the enrollment model
-(poisson, time-decay, piecewise poisson),
+(poisson, time-decay, or piecewise poisson),
 \code{theta} and \code{vtheta} to indicate the parameter
 values and the covariance matrix. One can use a very small
 value of \code{vtheta} to fix the parameter values.
@@ -173,31 +191,27 @@ For the piecewise Poisson enrollment model, the list
 should also include \code{accrualTime}. It should be noted
 that the B-spline model is not appropriate for use as prior.
 
-The \code{event_prior} variable should be a list that
-includes \code{model} to specify the event model
-(exponential, weibull, log-normal, piecewise exponential),
-\code{ngroups} to indicate the number of treatment groups,
-\code{alloc} to indicate the treatment allocation within a
-randomization block, \code{theta} and \code{vtheta} to indicate
-the parameter values and the covariance matrix, both of which
-have \code{ngroups} blocks with the \code{j}-th block specifying
-the prior distribution of model parameters for the \code{j}-th
-treatment group. For the piecewise exponential event model,
-the list should also include \code{piecewiseSurvivalTime} to indicate
+The \code{event_prior} variable should be a list with one element
+per treatment. For each treatment, the element should include \code{w}
+to specify the weight of the treatment in a randomization block,
+\code{model} to specify the event model
+(exponential, weibull, log-normal, or piecewise exponential),
+\code{theta} and \code{vtheta} to indicate
+the parameter values and the covariance matrix.
+For the piecewise exponential event model, the list
+should also include \code{piecewiseSurvivalTime} to indicate
 the location of knots. It should be noted that the model averaging
-option is not appropriate for use as prior.
+and spline options are not appropriate for use as prior.
 
-The \code{dropout_prior} should be a list that
-includes \code{model} to specify the dropout model
-(exponential, weibull, log-normal, piecewise exponential),
-\code{ngroups} to indicate the number of treatment groups,
-\code{alloc} to indicate the treatment allocation within a
-randomization block, \code{theta} and \code{vtheta} to indicate
-the parameter values and the covariance matrix, both of which
-have \code{ngroups} blocks with the \code{j}-th block specifying
-the prior distribution of model parameters for the \code{j}-th
-treatment group. For the piecewise exponential dropout model,
-the list should also include \code{piecewiseDropoutTime} to indicate
+The \code{dropout_prior} should be a list with one element
+per treatment. For each treatment, the element should include \code{w}
+to specify the weight of the treatment in a randomization block,
+\code{model} to specify the dropout model
+(exponential, weibull, log-normal, or piecewise exponential),
+\code{theta} and \code{vtheta} to indicate
+the parameter values and the covariance matrix.
+For the piecewise exponential dropout model, the list
+should also include \code{piecewiseDropoutTime} to indicate
 the location of knots.
 
 For analysis-stage enrollment and event prediction, the
@@ -208,7 +222,6 @@ of model parameters to be combined with observed data likelihood
 for enhanced modeling flexibility.
 }
 \examples{
-
 # Event prediction after enrollment completion
 
 pred <- getPrediction(

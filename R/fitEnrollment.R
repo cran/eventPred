@@ -30,6 +30,7 @@
 #' the Bayesian Information Criterion, \code{bic}, as well as
 #' the design matrix \code{x} for the B-spline enrollment model, and
 #' \code{accrualTime} for the piecewise Poisson enrollment model.
+#'
 #' The fitted enrollment curve is also returned.
 #'
 #' @examples
@@ -73,6 +74,14 @@ fitEnrollment <- function(df, enroll_model = "b-spline", nknots = 0,
 
   erify::check_positive(n0, supplement = paste(
     "The number of subjects must be positive to fit an enrollment model."))
+
+  if (any(df$randdt < trialsdt)) {
+    stop("randdt must be greater than or equal to trialsdt.")
+  }
+
+  if (any(df$randdt > cutoffdt)) {
+    stop("randdt must be less than or equal to cutoffdt.")
+  }
 
   df1 <- df %>%
     dplyr::arrange(.data$randdt) %>%
@@ -218,21 +227,17 @@ fitEnrollment <- function(df, enroll_model = "b-spline", nknots = 0,
 
   # plot the enrollment curve
   fittedEnroll <- plotly::plot_ly() %>%
-    plotly::add_lines(data=df1u, x=~t, y=~n, name="observed",
-                      line=list(shape="hv")) %>%
+    plotly::add_lines(
+      data=df1u, x=~t, y=~n, name="observed", line=list(shape="hv")) %>%
     plotly::add_lines(data=dffit1, x=~t, y=~n, name="fitted") %>%
     plotly::layout(
       xaxis = list(title = "Days since trial start", zeroline = FALSE),
       yaxis = list(title = "Subjects", zeroline = FALSE),
       title = list(text = "Fitted enrollment curve"),
       annotations = list(
-        x = c(0.05, 0.05), y = c(0.95, 0.85),
-        xref = "paper", yref = "paper",
-        text = paste('<i>', c(fit1$model, bictext), '</i>'),
-        xanchor = "left",
-        font = list(size = 14, color = "red"),
-        showarrow = FALSE
-      )) %>%
+        x = c(0.05, 0.05), y = c(0.95, 0.85), xref = "paper", yref = "paper",
+        text = paste('<i>', c(fit1$model, bictext), '</i>'), xanchor = "left",
+        font = list(size = 14, color = "red"), showarrow = FALSE)) %>%
     plotly::hide_legend()
 
   if (showplot) print(fittedEnroll)

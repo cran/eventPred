@@ -5,13 +5,13 @@
 \alias{interimData1}
 \title{Interim enrollment and event data before enrollment completion}
 \format{
-An object of class \code{tbl_df} (inherits from \code{tbl}, \code{data.frame}) with 224 rows and 7 columns.
+An object of class \code{tbl_df} (inherits from \code{tbl}, \code{data.frame}) with 223 rows and 7 columns.
 }
 \usage{
 interimData1
 }
 \description{
-A data frame with 225 rows and 5 columns:
+A data frame with 225 rows and 7 columns:
 \describe{
 \item{\code{trialsdt}}{The trial start date}
 \item{\code{randdt}}{The randomization date}

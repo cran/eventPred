@@ -11,7 +11,7 @@ An object of class \code{tbl_df} (inherits from \code{tbl}, \code{data.frame}) w
 interimData2
 }
 \description{
-A data frame with 300 rows and 5 columns:
+A data frame with 300 rows and 7 columns:
 \describe{
 \item{\code{trialsdt}}{The trial start date}
 \item{\code{randdt}}{The randomization date}

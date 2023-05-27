@@ -10,16 +10,18 @@ fitEvent(
   piecewiseSurvivalTime = 0,
   k = 0,
   scale = "hazard",
-  showplot = TRUE
+  showplot = TRUE,
+  by_treatment = FALSE
 )
 }
 \arguments{
 \item{df}{The subject-level event data, including \code{time}
-and \code{event}.}
+and \code{event}. The data should also include \code{treatment}
+coded as 1, 2, and so on, for fitting the event model by treatment.}
 
 \item{event_model}{The event model used to analyze the event data
-which can be set to one of the
-following options: "exponential", "Weibull", "log-normal",
+which can be set to one of the following options:
+"exponential", "Weibull", "log-normal",
 "piecewise exponential", "model averaging", or "spline".
 The model averaging uses the \code{exp(-bic/2)} weighting and
 combines Weibull and log-normal models. The spline model of
@@ -32,7 +34,7 @@ intervals for the piecewise exponential survival distribution.
 Must start with 0, e.g., c(0, 60) breaks the time axis into 2
 event intervals: [0, 60) and [60, Inf). By default, it is set to 0.}
 
-\item{k}{The number of inner knots in the spline. The default
+\item{k}{The number of inner knots of the spline. The default
 \code{k=0} gives a Weibull, log-logistic or log-normal model,
 if \code{scale} is "hazard", "odds", or "normal", respectively.
 The knots are chosen as equally-spaced quantiles of the log
@@ -47,6 +49,10 @@ modeled as a spline function.}
 \item{showplot}{A Boolean variable to control whether or not to
 show the fitted time-to-event survival curve. By default, it is
 set to \code{TRUE}.}
+
+\item{by_treatment}{A Boolean variable to control whether or not to
+fit the time-to-event data by treatment group. By default,
+it is set to \code{FALSE}.}
 }
 \value{
 A list of results from the model fit including key information
@@ -63,6 +69,10 @@ to the Weibull component is indicated by the \code{w1} variable.
 
 If the spline option is chosen, the \code{knots} and \code{scale}
 will be included in the list of results.
+
+When fitting the event model by treatment, the outcome is presented
+as a list of lists, where each list element corresponds to a
+specific treatment group.
 
 The fitted time-to-event survival curve is also returned.
 }
