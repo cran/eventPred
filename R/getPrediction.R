@@ -461,7 +461,7 @@ getPrediction <- function(
       }
 
 
-      if (!is.null(event_prior)) {
+      if (!is.null(event_prior) && "w" %in% names(event_prior2[[j]])) {
         if (event_prior2[[j]]$w != dropout_prior2[[j]]$w) {
           stop("w must be equal between event prior and dropout prior.")
         }
@@ -550,12 +550,14 @@ getPrediction <- function(
       erify::check_n(target_d - observed$d0,
                      supplement = "Event target reached.")
 
-      sum_by_trt <- df %>%
-        dplyr::group_by(.data$treatment) %>%
-        dplyr::summarise(n0 = dplyr::n(),
-                         d0 = sum(.data$event),
-                         c0 = sum(.data$dropout),
-                         r0 = sum(!(.data$event | .data$dropout)))
+      if (by_treatment) {
+        sum_by_trt <- df %>%
+          dplyr::group_by(.data$treatment) %>%
+          dplyr::summarise(n0 = dplyr::n(),
+                           d0 = sum(.data$event),
+                           c0 = sum(.data$dropout),
+                           r0 = sum(!(.data$event | .data$dropout)))
+      }
 
       # convert prior by treatment to prior overall
       if (!is.null(event_prior) && !by_treatment &&

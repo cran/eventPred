@@ -16,7 +16,8 @@ of subjects or events will be achieved is critical for the planning,
 monitoring, and execution of clinical trials. The \code{eventPred}
 package provides enrollment and event prediction capabilities
 using assumed enrollment and treatment-specific time-to-event models
-at the design stage, or blinded data and specified enrollment and
+at the design stage, using blinded or unblinded data and
+specified enrollment and
 time-to-event models at the analysis stage.
 
 At the design stage, enrollment is often specified using a
