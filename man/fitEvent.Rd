@@ -17,11 +17,12 @@ fitEvent(
 \arguments{
 \item{df}{The subject-level event data, including \code{time}
 and \code{event}. The data should also include \code{treatment}
-coded as 1, 2, and so on, for fitting the event model by treatment.}
+coded as 1, 2, and so on, and \code{treatment_description}
+for fitting the event model by treatment.}
 
 \item{event_model}{The event model used to analyze the event data
 which can be set to one of the following options:
-"exponential", "Weibull", "log-normal",
+"exponential", "Weibull", "log-logistic", "log-normal",
 "piecewise exponential", "model averaging", or "spline".
 The model averaging uses the \code{exp(-bic/2)} weighting and
 combines Weibull and log-normal models. The spline model of
@@ -58,6 +59,7 @@ it is set to \code{FALSE}.}
 A list of results from the model fit including key information
 such as the event model, \code{model}, the estimated model parameters,
 \code{theta}, the covariance matrix, \code{vtheta}, as well as the
+Akaike Information Criterion, \code{aic}, and
 Bayesian Information Criterion, \code{bic}.
 
 If the piecewise exponential model is used, the location

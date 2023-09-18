@@ -13,9 +13,10 @@ summarizeObserved(
 }
 \arguments{
 \item{df}{The subject-level data, including \code{trialsdt},
-\code{randdt}, and \code{cutoffdt} for enrollment prediction,
-as well as \code{time}, \code{event} and \code{dropout}
-for event prediction, and \code{treatment} for prediction
+\code{usubjid}, \code{randdt}, and \code{cutoffdt} for enrollment
+prediction, as well as \code{time}, \code{event} and \code{dropout}
+for event prediction, and \code{treatment} coded as 1, 2,
+and so on, and \code{treatment_description} for prediction
 by treatment group.}
 
 \item{to_predict}{Specifies what to predict: "enrollment only",

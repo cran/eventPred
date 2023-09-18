@@ -1,3 +1,16 @@
+# eventPred 0.2.0
+
+- allow the use of treatment labels for by-treatment prediction
+- include usubjid in subject-level data sets
+- use the quantile method for predicted date if all simulated data sets attain the target number of events
+- add log-logistic event model and log-logistic dropout model
+- change parameterization of Weibull distribution to be consistent with log-logistic and log-normal distributions in the AFT family 
+- add AIC to enrollment, event and dropout model fits
+- check the required number of events/dropouts for event/dropout model fits 
+- add "model averaging" and "spline" as additional dropout_model options
+- update enroll_fit, event_fit, and dropout_fit for prior incorporation
+
+
 # eventPred 0.1.5
 
 - update design stage prediction with one treatment arm

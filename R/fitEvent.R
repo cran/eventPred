@@ -3,10 +3,11 @@
 #'
 #' @param df The subject-level event data, including \code{time}
 #'   and \code{event}. The data should also include \code{treatment}
-#'   coded as 1, 2, and so on, for fitting the event model by treatment.
+#'   coded as 1, 2, and so on, and \code{treatment_description}
+#'   for fitting the event model by treatment.
 #' @param event_model The event model used to analyze the event data
 #'   which can be set to one of the following options:
-#'   "exponential", "Weibull", "log-normal",
+#'   "exponential", "Weibull", "log-logistic", "log-normal",
 #'   "piecewise exponential", "model averaging", or "spline".
 #'   The model averaging uses the \code{exp(-bic/2)} weighting and
 #'   combines Weibull and log-normal models. The spline model of
@@ -34,11 +35,10 @@
 #'   fit the time-to-event data by treatment group. By default,
 #'   it is set to \code{FALSE}.
 #'
-#'
-#' @return
-#' A list of results from the model fit including key information
+#' @return A list of results from the model fit including key information
 #' such as the event model, \code{model}, the estimated model parameters,
 #' \code{theta}, the covariance matrix, \code{vtheta}, as well as the
+#' Akaike Information Criterion, \code{aic}, and
 #' Bayesian Information Criterion, \code{bic}.
 #'
 #' If the piecewise exponential model is used, the location
@@ -72,9 +72,9 @@ fitEvent <- function(df, event_model = "model averaging",
   erify::check_class(df, "data.frame")
 
   erify::check_content(tolower(event_model),
-                       c("exponential", "weibull", "log-normal",
-                         "piecewise exponential", "model averaging",
-                         "spline"))
+                       c("exponential", "weibull", "log-logistic",
+                         "log-normal", "piecewise exponential",
+                         "model averaging", "spline"))
 
   if (piecewiseSurvivalTime[1] != 0) {
     stop("piecewiseSurvivalTime must start with 0");
@@ -95,10 +95,14 @@ fitEvent <- function(df, event_model = "model averaging",
 
   if (by_treatment) {
     ngroups = length(table(df$treatment))
+
+    if (!("treatment_description" %in% names(df))) {
+      df <- df %>% dplyr::mutate(
+        treatment_description = paste0("Treatment ", .data$treatment))
+    }
   } else {
     ngroups = 1
-    df <- df %>%
-      dplyr::mutate(treatment = 1)
+    df <- df %>% dplyr::mutate(treatment = 1)
   }
 
   if (ngroups == 1) {
@@ -111,15 +115,11 @@ fitEvent <- function(df, event_model = "model averaging",
   g1 <- list()
 
   for (i in 1:ngroups) {
-    df1 <- df %>%
-      dplyr::filter(.data$treatment == i)
+    df1 <- df %>% dplyr::filter(.data$treatment == i)
 
     n0 = nrow(df1)
     d0 = sum(df1$event)
     ex0 = sum(df1$time)
-
-    erify::check_positive(d0, supplement = paste(
-      "The number of events must be positive to fit an event model."))
 
     kmfit <- survival::survfit(survival::Surv(time, event) ~ 1, data = df1)
     kmdf <- dplyr::tibble(time = kmfit$time, surv = kmfit$surv)
@@ -127,12 +127,16 @@ fitEvent <- function(df, event_model = "model averaging",
       dplyr::bind_rows(kmdf)
 
     if (tolower(event_model) == "exponential") {
+      erify::check_positive(d0, supplement = paste(
+        "The number of events must be >= 1 to fit an exponential model."))
+
       # lambda(t) = lambda
       # S(t) = exp(-lambda*t)
 
       fit2 <- list(model = 'Exponential',
                    theta = log(d0/ex0),
                    vtheta = 1/d0,
+                   aic = -2*(-d0 + d0*log(d0/ex0)) + 2,
                    bic = -2*(-d0 + d0*log(d0/ex0)) + log(n0))
 
       # fitted survival curve
@@ -140,6 +144,9 @@ fitEvent <- function(df, event_model = "model averaging",
         time = seq(0, max(df1$time)),
         surv = pexp(.data$time, rate = exp(fit2$theta), lower.tail = FALSE))
     } else if (tolower(event_model) == "weibull") {
+      erify::check_positive(d0 - 1, supplement = paste(
+        "The number of events must be >= 2 to fit a Weibull model."))
+
       # lambda(t) = kappa/lambda*(t/lambda)^(kappa-1)
       # S(t) = exp(-(t/lambda)^kappa)
 
@@ -147,29 +154,57 @@ fitEvent <- function(df, event_model = "model averaging",
                                data = df1, dist = "weibull")
 
       # weibull$shape = 1/reg$scale, weibull$scale = exp(reg$coefficients)
-      # we define theta = (log(weibull$shape), log(weibull$scale))
-      # reg$var is for c(reg$coefficients, log(reg$scale))
-      lmat <- matrix(c(0, -1, 1, 0), nrow=2, ncol=2, byrow=TRUE)
+      # we define theta = (log(weibull$scale), -log(weibull$shape))
+      # reg$var is for theta = c(reg$coefficients, log(reg$scale))
       fit2 <- list(model = "Weibull",
-                   theta = c(log(1/reg$scale), as.numeric(reg$coefficients)),
-                   vtheta = lmat %*% reg$var %*% t(lmat),
+                   theta = c(as.numeric(reg$coefficients), log(reg$scale)),
+                   vtheta = reg$var,
+                   aic = -2*reg$loglik[1] + 4,
                    bic = -2*reg$loglik[1] + 2*log(n0))
 
       # fitted survival curve
       dffit2 <- dplyr::tibble(
         time = seq(0, max(df1$time)),
-        surv = pweibull(.data$time, shape = exp(fit2$theta[1]),
-                        scale = exp(fit2$theta[2]), lower.tail = FALSE))
+        surv = pweibull(.data$time, shape = exp(-fit2$theta[2]),
+                        scale = exp(fit2$theta[1]), lower.tail = FALSE))
+    } else if (tolower(event_model) == "log-logistic") {
+      erify::check_positive(d0 - 1, supplement = paste(
+        "The number of events must be >= 2 to fit a log-logistic model."))
+
+      # S(t) = 1/(1 + (t/lambda)^kappa)
+
+      reg <- survival::survreg(survival::Surv(time, event) ~ 1,
+                               data = df1, dist = "loglogistic")
+
+      # llogis$shape = 1/reg$scale, llogis$scale = exp(reg$coefficients)
+      # we define theta = (log(llogis$scale), -log(llogis$shape))
+      # reg$var is for theta = c(reg$coefficients, log(reg$scale))
+      fit2 <- list(model = "Log-logistic",
+                   theta = c(as.numeric(reg$coefficients), log(reg$scale)),
+                   vtheta = reg$var,
+                   aic = -2*reg$loglik[1] + 4,
+                   bic = -2*reg$loglik[1] + 2*log(n0))
+
+      # fitted survival curve
+      dffit2 <- dplyr::tibble(
+        time = seq(0, max(df1$time)),
+        surv = plogis(log(.data$time), location = fit2$theta[1],
+                      scale = exp(fit2$theta[2]), lower.tail = FALSE))
     } else if (tolower(event_model) == "log-normal") {
+      erify::check_positive(d0 - 1, supplement = paste(
+        "The number of events must be >= 2 to fit a log-normal model."))
+
       # S(t) = 1 - Phi((log(t) - meanlog)/sdlog)
+
       reg <- survival::survreg(survival::Surv(time, event) ~ 1,
                                data = df1, dist = "lognormal")
 
       # we use parameterization theta = (meanlog, log(sdlog))
-      # reg$var is for c(reg$coefficients, log(reg$scale)) = theta
+      # reg$var is for theta = c(reg$coefficients, log(reg$scale))
       fit2 <- list(model = "Log-normal",
                    theta = c(as.numeric(reg$coefficients), log(reg$scale)),
                    vtheta = reg$var,
+                   aic = -2*reg$loglik[1] + 4,
                    bic = -2*reg$loglik[1] + 2*log(n0))
 
       # fitted survival curve
@@ -180,6 +215,7 @@ fitEvent <- function(df, event_model = "model averaging",
     } else if (tolower(event_model) == "piecewise exponential") {
       # lambda(t) = lambda[j] for ucut[j] < t <= ucut[j+1], j = 1,...,J
       # where ucut[1]=0< ucut[2]< ...< ucut[J]< ucut[J+1]=Inf are the knots
+
       u = piecewiseSurvivalTime[piecewiseSurvivalTime < max(df1$time)]
       ucut = c(u, max(df1$time))
       J = length(u)
@@ -192,6 +228,11 @@ fitEvent <- function(df, event_model = "model averaging",
         ex[j] = sum(pmax(0, pmin(df1$time, ucut[j+1]) - ucut[j]))
       }
 
+      if (any(d == 0)) {
+        stop(paste("The number of events must be >= 1 in each interval",
+             "to fit a piecewise exponential model."))
+      }
+
       # maximum likelihood estimates and covariance matrix
       if (J > 1) {
         vtheta = diag(1/d)
@@ -202,6 +243,7 @@ fitEvent <- function(df, event_model = "model averaging",
       fit2 <- list(model = "Piecewise exponential",
                    theta = log(d/ex),
                    vtheta = vtheta,
+                   aic = -2*sum(-d + d*log(d/ex)) + 2*J,
                    bic = -2*sum(-d + d*log(d/ex)) + J*log(n0),
                    piecewiseSurvivalTime = u)
 
@@ -220,10 +262,15 @@ fitEvent <- function(df, event_model = "model averaging",
 
       dffit2 <- dplyr::tibble(time, surv)
     } else if (tolower(event_model) == "model averaging") {
+      erify::check_positive(d0 - 1, supplement = paste(
+        "The number of events must be >= 2 to fit a model averaging model."))
+
       reg1 <- survival::survreg(survival::Surv(time, event) ~ 1,
                                 data = df1, dist = "weibull")
       reg2 <- survival::survreg(survival::Surv(time, event) ~ 1,
                                 data = df1, dist = "lognormal")
+      aic1 <- -2*reg1$loglik[1] + 4
+      aic2 <- -2*reg2$loglik[1] + 4
       bic1 <- -2*reg1$loglik[1] + 2*log(n0)
       bic2 <- -2*reg2$loglik[1] + 2*log(n0)
 
@@ -231,26 +278,26 @@ fitEvent <- function(df, event_model = "model averaging",
 
 
       # model parameters from weibull and log-normal
-      theta = c(log(1/reg1$scale), as.numeric(reg1$coefficients),
+      theta = c(as.numeric(reg1$coefficients), log(reg1$scale),
                 as.numeric(reg2$coefficients), log(reg2$scale))
 
       # variance-covariance matrix, noting that the covariances
       # between the two sets of parameters are zero as they are estimated
       # from different likelihood functions
-      lmat <- matrix(c(0, -1, 1, 0), nrow=2, ncol=2, byrow=TRUE)
-      vtheta = as.matrix(Matrix::bdiag(lmat%*%reg1$var%*%t(lmat), reg2$var))
+      vtheta = as.matrix(Matrix::bdiag(reg1$var, reg2$var))
 
       # model fit, assuming fixed weight w1
       fit2 <- list(model = "Model averaging",
                    theta = theta,
                    vtheta = vtheta,
+                   aic = w1*aic1 + (1-w1)*aic2,
                    bic = w1*bic1 + (1-w1)*bic2,
                    w1 = w1)
 
       # distribution function for model averaging of Weibull and log-normal
       pmodavg <- function(t, theta, w1, lower.tail = TRUE, log.p = FALSE) {
-        shape = exp(theta[1])
-        scale = exp(theta[2])
+        shape = exp(-theta[2])
+        scale = exp(theta[1])
         meanlog = theta[3]
         sdlog = exp(theta[4])
 
@@ -267,6 +314,9 @@ fitEvent <- function(df, event_model = "model averaging",
         time = seq(0, max(df1$time)),
         surv = pmodavg(.data$time, theta, w1, lower.tail = FALSE))
     } else if (tolower(event_model) == "spline") {
+      erify::check_positive(d0 - k - 1, supplement = paste(
+        "The number of events must be >=", k + 2, "to fit a spline model."))
+
       # g(S(t)) = gamma_0 +gamma_1*x +gamma_2*v_1(x) +... +gamma_{m+1}*v_m(x)
 
       spl <- flexsurv::flexsurvspline(survival::Surv(time, event) ~ 1,
@@ -276,6 +326,7 @@ fitEvent <- function(df, event_model = "model averaging",
       fit2 <- list(model = "Spline",
                    theta = spl$coefficients,
                    vtheta = spl$cov,
+                   aic = -2*spl$loglik + 2*(k+2),
                    bic = -2*spl$loglik + (k+2)*log(n0),
                    knots = spl$knots,
                    scale = spl$scale)
@@ -290,9 +341,21 @@ fitEvent <- function(df, event_model = "model averaging",
 
 
     # plot the survival curve
+    if (tolower(fit2$model) == "piecewise exponential") {
+      modeltext = paste0(paste0(fit2$model, "("),
+                         paste(piecewiseSurvivalTime, collapse = ","), ")")
+    } else if (tolower(fit2$model) == "spline") {
+      modeltext = paste0(fit2$model, "(k = ", k, ", ", "scale = '",
+                         scale, "')")
+    } else {
+      modeltext = fit2$model
+    }
+
     if (tolower(event_model) == "model averaging") {
+      aictext = paste("Weighted AIC:", round(fit2$aic,2))
       bictext = paste("Weighted BIC:", round(fit2$bic,2))
     } else {
+      aictext = paste("AIC:", round(fit2$aic,2))
       bictext = paste("BIC:", round(fit2$bic,2))
     }
 
@@ -307,8 +370,9 @@ fitEvent <- function(df, event_model = "model averaging",
         yaxis = list(title = "Survival probability", zeroline = FALSE),
         title = list(text = "Fitted time to event survival curve"),
         annotations = list(
-          x = c(0.75, 0.75), y = c(0.95, 0.85), xref = "paper",
-          yref = "paper", text = paste('<i>', c(fit2$model, bictext), '</i>'),
+          x = c(0.7, 0.7, 0.7), y = c(0.95, 0.80, 0.65), xref = "paper",
+          yref = "paper", text = paste('<i>', c(modeltext, aictext,
+                                                bictext), '</i>'),
           xanchor = "left", font = list(size = 14, color = "red"),
           showarrow = FALSE)) %>%
       plotly::hide_legend()
@@ -316,9 +380,15 @@ fitEvent <- function(df, event_model = "model averaging",
     if (by_treatment && ngroups > 1) {
       fittedEvent <- fittedEvent %>%
         plotly::layout(annotations = list(
-          x = 0.5, y = 1, text = paste0("<b>treatment=", i, "</b>"),
+          x = 0.5, y = 1,
+          text = paste0("<b>", df1$treatment_description[1], "</b>"),
           xanchor = "center", yanchor = "middle", showarrow = FALSE,
-          xref='paper', yref='paper'))
+          xref = 'paper', yref = 'paper'))
+    }
+
+    if (by_treatment) {
+      fit2$treatment = df1$treatment[1]
+      fit2$treatment_description = df1$treatment_description[1]
     }
 
     event_fit[[i]] = fit2

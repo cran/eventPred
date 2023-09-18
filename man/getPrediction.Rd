@@ -21,6 +21,8 @@ getPrediction(
   event_prior = NULL,
   dropout_model = "exponential",
   piecewiseDropoutTime = 0,
+  k_dropout = 0,
+  scale_dropout = "hazard",
   dropout_prior = NULL,
   fixedFollowup = FALSE,
   followupTime = 365,
@@ -35,15 +37,17 @@ getPrediction(
   showplot = TRUE,
   by_treatment = FALSE,
   ngroups = 1,
-  alloc = NULL
+  alloc = NULL,
+  treatment_label = NULL
 )
 }
 \arguments{
 \item{df}{The subject-level enrollment and event data, including
-\code{trialsdt}, \code{randdt}, and \code{cutoffdt} for
+\code{trialsdt}, \code{usubjid}, \code{randdt}, and \code{cutoffdt} for
 enrollment prediction, and, additionally, \code{time}, \code{event},
 and \code{dropout} for event prediction. The data should also include
-\code{treatment} coded as 1, 2, and so on, for enrollment and
+\code{treatment} coded as 1, 2, and so on, and
+\code{treatment_description} for enrollment and
 event prediction by treatment. By default, it is set to
 \code{NULL} for enrollment and event prediction at the design stage.}
 
@@ -75,11 +79,11 @@ By default, it is set to 0.}
 
 \item{event_model}{The event model used to analyze the event data
 which can be set to one of the following options:
-"exponential", "Weibull", "log-normal",
-"piecewise exponential", or "model averaging". The model averaging
-uses the \code{exp(-bic/2)} weighting and combines Weibull and
-log-normal models. By default, it is set to "model
-averaging".}
+"exponential", "Weibull", "log-logistic", "log-normal",
+"piecewise exponential", "model averaging", or "spline".
+The model averaging uses the \code{exp(-bic/2)} weighting and
+combines Weibull and log-normal models. By default, it is set to
+"model averaging".}
 
 \item{piecewiseSurvivalTime}{A vector that specifies the time
 intervals for the piecewise exponential survival distribution.
@@ -102,14 +106,30 @@ modeled as a spline function.}
 \item{event_prior}{The prior of event model parameters.}
 
 \item{dropout_model}{The dropout model used to analyze the dropout data
-which can be set to one of the following options: "exponential",
-"Weibull", "log-normal", or "piecewise exponential". By default,
-it is set to "exponential".}
+which can be set to one of the following options:
+"none", "exponential", "Weibull", "log-logistic", "log-normal",
+"piecewise exponential", "model averaging", or "spline".
+The model averaging uses the \code{exp(-bic/2)} weighting and
+combines Weibull and log-normal models. By default, it is set to
+"exponential".}
 
 \item{piecewiseDropoutTime}{A vector that specifies the time
 intervals for the piecewise exponential dropout distribution.
 Must start with 0, e.g., c(0, 60) breaks the time axis into 2
 event intervals: [0, 60) and [60, Inf). By default, it is set to 0.}
+
+\item{k_dropout}{The number of inner knots of the spline dropout model of
+Royston and Parmar (2002). The default
+\code{k_dropout=0} gives a Weibull, log-logistic or log-normal model,
+if \code{scale_dropout} is "hazard", "odds", or "normal", respectively.
+The knots are chosen as equally-spaced quantiles of the log
+uncensored survival times. The boundary knots are chosen as the
+minimum and maximum log uncensored survival times.}
+
+\item{scale_dropout}{If "hazard", the log cumulative hazard is modeled
+as a spline function. If "odds", the log cumulative odds is
+modeled as a spline function. If "normal", -qnorm(S(t)) is
+modeled as a spline function.}
 
 \item{dropout_prior}{The prior of dropout model parameters.}
 
@@ -162,6 +182,9 @@ treatment groups in the observed data if \code{df} is not \code{NULL}.}
 \item{alloc}{The treatment allocation in a randomization block.
 By default, it is set to \code{NULL}, which yields equal allocation
 among the treatment groups.}
+
+\item{treatment_label}{The treatment labels for treatments in a
+randomization block for design stage prediction.}
 }
 \value{
 A list that includes the fits of observed data models,
@@ -191,28 +214,30 @@ For the piecewise Poisson enrollment model, the list
 should also include \code{accrualTime}. It should be noted
 that the B-spline model is not appropriate for use as prior.
 
-The \code{event_prior} variable should be a list with one element
-per treatment. For each treatment, the element should include \code{w}
-to specify the weight of the treatment in a randomization block,
-\code{model} to specify the event model
-(exponential, weibull, log-normal, or piecewise exponential),
-\code{theta} and \code{vtheta} to indicate
-the parameter values and the covariance matrix.
-For the piecewise exponential event model, the list
-should also include \code{piecewiseSurvivalTime} to indicate
-the location of knots. It should be noted that the model averaging
-and spline options are not appropriate for use as prior.
+For event prediction by treatment with prior information,
+the \code{event_prior} (\code{dropout_prior}) variable should be
+a list with one element per treatment. For each treatment, the
+element should include \code{model} to specify the event (dropout)
+model (exponential, weibull, log-logistic, log-normal,
+or piecewise exponential), \code{theta} and \code{vtheta} to
+indicate the parameter values and the covariance matrix.
+For the piecewise exponential event (dropout) model, the list
+should also include \code{piecewiseSurvivalTime}
+(\code{piecewiseDropoutTime}) to indicate the location of knots.
+It should be noted that the model averaging and spline options
+are not appropriate for use as prior.
 
-The \code{dropout_prior} should be a list with one element
-per treatment. For each treatment, the element should include \code{w}
-to specify the weight of the treatment in a randomization block,
-\code{model} to specify the dropout model
-(exponential, weibull, log-normal, or piecewise exponential),
-\code{theta} and \code{vtheta} to indicate
-the parameter values and the covariance matrix.
-For the piecewise exponential dropout model, the list
-should also include \code{piecewiseDropoutTime} to indicate
-the location of knots.
+If the event prediction is not by treatment while the prior
+information is given by treatment, then each element of
+\code{event_prior} (\code{dropout_prior}) should also include
+\code{w} to specify the weight of the treatment in a
+randomization block. If the prediction is not by treatment and
+the prior is given for the overall study, then \code{event_prior}
+(\code{dropout_prior}) is a flat list with \code{model},
+\code{theta}, and \code{vtheta}. For the piecewise exponential
+event (dropout) model, it should also include
+\code{piecewiseSurvivalTime} (\code{piecewiseDropoutTime}) to
+indicate the location of knots.
 
 For analysis-stage enrollment and event prediction, the
 \code{enroll_prior}, \code{event_prior}, and

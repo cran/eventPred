@@ -33,7 +33,8 @@ show the fitted enrollment curve. By default, it is set to \code{TRUE}.}
 \value{
 A list of results from the model fit including key information
 such as the enrollment model, \code{model}, the estimated model
-parameters, \code{theta}, the covariance matrix, \code{vtheta}, and
+parameters, \code{theta}, the covariance matrix, \code{vtheta},
+the Akaike Information Criterion, \code{aic}, and
 the Bayesian Information Criterion, \code{bic}, as well as
 the design matrix \code{x} for the B-spline enrollment model, and
 \code{accrualTime} for the piecewise Poisson enrollment model.

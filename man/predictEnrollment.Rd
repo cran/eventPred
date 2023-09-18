@@ -16,15 +16,17 @@ predictEnrollment(
   showplot = TRUE,
   by_treatment = FALSE,
   ngroups = 1,
-  alloc = NULL
+  alloc = NULL,
+  treatment_label = NULL
 )
 }
 \arguments{
 \item{df}{The subject-level enrollment data, including \code{trialsdt},
 \code{randdt} and \code{cutoffdt}. The data should also include
-\code{treatment} for prediction by treatment group.
-By default, it is set to \code{NULL} for enrollment prediction
-at the design stage.}
+\code{treatment} coded as 1, 2, and so on, and
+\code{treatment_description} for prediction
+by treatment group. By default, it is set to \code{NULL}
+for enrollment prediction at the design stage.}
 
 \item{target_n}{The target number of subjects to enroll in the study.}
 
@@ -62,6 +64,9 @@ treatment groups in the observed data if \code{df} is not \code{NULL}.}
 \item{alloc}{The treatment allocation in a randomization block.
 By default, it is set to \code{NULL}, which yields equal allocation
 among the treatment groups.}
+
+\item{treatment_label}{The treatment labels for treatments in a
+randomization block for design stage prediction.}
 }
 \value{
 A list of prediction results, which includes important information

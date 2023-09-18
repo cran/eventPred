@@ -8,6 +8,8 @@ fitDropout(
   df,
   dropout_model = "exponential",
   piecewiseDropoutTime = 0,
+  k_dropout = 0,
+  scale_dropout = "hazard",
   showplot = TRUE,
   by_treatment = FALSE
 )
@@ -15,17 +17,35 @@ fitDropout(
 \arguments{
 \item{df}{The subject-level dropout data, including \code{time} and
 \code{dropout}. The data should also include \code{treatment}
-coded as 1, 2, and so on, for fitting the dropout model by treatment.}
+coded as 1, 2, and so on, and \code{treatment_description}
+for fitting the dropout model by treatment.}
 
 \item{dropout_model}{The dropout model used to analyze the dropout data
-which can be set to one of the following options: "exponential",
-"Weibull", "log-normal", or "piecewise exponential". By default,
-it is set to "exponential".}
+which can be set to one of the following options:
+"exponential", "Weibull", "log-logistic", "log-normal",
+"piecewise exponential", "model averaging", or "spline".
+The model averaging uses the \code{exp(-bic/2)} weighting and
+combines Weibull and log-normal models. The spline model of
+Royston and Parmar (2002) assumes that a transformation of
+the survival function is modeled as a natural cubic spline
+function of log time. By default, it is set to "exponential".}
 
 \item{piecewiseDropoutTime}{A vector that specifies the time
 intervals for the piecewise exponential dropout distribution.
 Must start with 0, e.g., c(0, 60) breaks the time axis into 2
 event intervals: [0, 60) and [60, Inf). By default, it is set to 0.}
+
+\item{k_dropout}{The number of inner knots of the spline. The default
+\code{k_dropout=0} gives a Weibull, log-logistic or log-normal model,
+if \code{scale_dropout} is "hazard", "odds", or "normal", respectively.
+The knots are chosen as equally-spaced quantiles of the log
+uncensored survival times. The boundary knots are chosen as the
+minimum and maximum log uncensored survival times.}
+
+\item{scale_dropout}{If "hazard", the log cumulative hazard is modeled
+as a spline function. If "odds", the log cumulative odds is
+modeled as a spline function. If "normal", -qnorm(S(t)) is
+modeled as a spline function.}
 
 \item{showplot}{A Boolean variable to control whether or not to
 show the fitted time-to-dropout survival curve. By default, it is
@@ -39,11 +59,18 @@ it is set to \code{FALSE}.}
 A list of results from the model fit including key information
 such as the dropout model, \code{model}, the estimated model parameters,
 \code{theta}, the covariance matrix, \code{vtheta}, as well as the
+Akaike Information Criterion, \code{aic}, and
 Bayesian Information Criterion, \code{bic}.
 
 If the piecewise exponential model is used, the location
 of knots used in the model, \code{piecewiseDropoutTime}, will
 be included in the list of results.
+
+If the model averaging option is chosen, the weight assigned
+to the Weibull component is indicated by the \code{w1} variable.
+
+If the spline option is chosen, the \code{knots} and \code{scale}
+will be included in the list of results.
 
 When fitting the dropout model by treatment, the outcome is presented
 as a list of lists, where each list element corresponds to a

@@ -15,8 +15,7 @@
 #' package provides enrollment and event prediction capabilities
 #' using assumed enrollment and treatment-specific time-to-event models
 #' at the design stage, using blinded or unblinded data and
-#' specified enrollment and
-#' time-to-event models at the analysis stage.
+#' specified enrollment and time-to-event models at the analysis stage.
 #'
 #' At the design stage, enrollment is often specified using a
 #' piecewise Poisson process with a constant enrollment rate
@@ -30,13 +29,12 @@
 #' If prior information exists on the model parameters, it can
 #' be combined with the likelihood to yield the posterior distribution.
 #'
-#' The \code{eventPred} package also offers several time-to-event
-#' models, including exponential, Weibull, log-normal, piecewise
-#' exponential, model-averaging of Weibull and log-normal, and spline.
-#' For time to dropout, exponential, Weibull, log-normal, and
-#' piecewise exponential distributions are considered. If enrollment
-#' is complete, ongoing subjects who have not had the event of interest
-#' or dropped out of the study before the data cut contribute
+#' The \code{eventPred} package also offers several time-to-event models,
+#' including exponential, Weibull, log-logistic, log-normal, piecewise
+#' exponential, model averaging of Weibull and log-normal, and spline.
+#' For time to dropout, the same set of model options are considered.
+#' If enrollment is complete, ongoing subjects who have not had the event
+#' of interest or dropped out of the study before the data cut contribute
 #' additional events in the future. Their event times are generated
 #' from the conditional distribution given that they have survived
 #' at the data cut. For new subjects that need to be enrolled,
@@ -45,7 +43,8 @@
 #' drawn from the posterior distribution. Time-to-dropout can be
 #' generated in a similar fashion.
 #'
-#' The \code{eventPred} package displays the Bayesian Information
+#' The \code{eventPred} package displays the Akaike Information
+#' Criterion (AIC), the Bayesian Information
 #' Criterion (BIC) and a fitted curve overlaid with observed data
 #' to help users select the most appropriate model for enrollment
 #' and event prediction. Prediction intervals in the prediction plot
@@ -77,15 +76,16 @@
 #'   \item Event or dropout models
 #'   \itemize{
 #'     \item Exponential: \code{theta = log(rate)}
-#'     \item Weibull: \code{theta = c(log(shape), log(scale))}
+#'     \item Weibull: \code{theta = c(log(scale), -log(shape))}
+#'     \item Log-logistic: \code{theta = c(log(scale), -log(shape))}
 #'     \item Log-normal: \code{theta = c(meanlog, log(sdlog))}
 #'     \item Piecewise exponential: \code{theta = log(rates)}.
 #'     The left endpoints of time intervals, denoted as
 #'     \code{piecewiseSurvivalTime} for event model and
 #'     \code{piecewiseDropoutTime} for dropout model, are
 #'     considered fixed.
-#'     \item Model averaging: \code{theta = c(log(weibull$shape),
-#'     log(weibull$scale), lnorm$meanlog, log(lnorm$sdlog))}.
+#'     \item Model averaging: \code{theta = c(log(weibull$scale),
+#'     -log(weibull$shape), lnorm$meanlog, log(lnorm$sdlog))}.
 #'     The covariance matrix for \code{theta} is structured
 #'     as a block diagonal matrix, with the upper-left block
 #'     corresponding to the Weibull component and the
@@ -136,10 +136,11 @@
 #' @importFrom rstpm2 vuniroot
 #' @importFrom numDeriv grad
 #' @importFrom tmvtnsim rtnorm
-#' @importFrom stats dlnorm dnorm dweibull loess.smooth optim
+#' @importFrom stats dweibull dlnorm loess.smooth optim
 #'   optimHess pexp plnorm plogis pnorm pweibull qlogis qnorm quantile
-#'   rbinom rexp rlnorm rmultinom rnorm runif rweibull uniroot var
+#'   rbinom reorder rexp rlnorm rmultinom rnorm runif rweibull uniroot var
 #' @importFrom flexsurv flexsurvspline psurvspline qsurvspline rsurvspline
+#'   dllogis pllogis
 #' @importFrom erify check_bool check_class check_content check_n
 #'   check_positive
 #' @importFrom rlang .data
