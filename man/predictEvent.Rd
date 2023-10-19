@@ -145,3 +145,6 @@ event_pred <- predictEvent(df = interimData2, target_d = 200,
                            pilevel = 0.90, nreps = 100)
 
 }
+\author{
+Kaifeng Lu, \email{kaifenglu@gmail.com}
+}

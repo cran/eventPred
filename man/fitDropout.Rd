@@ -86,3 +86,6 @@ Fits a specified time-to-dropout model to the dropout data.
 dropout_fit <- fitDropout(df = interimData2, dropout_model = "exponential")
 
 }
+\author{
+Kaifeng Lu, \email{kaifenglu@gmail.com}
+}

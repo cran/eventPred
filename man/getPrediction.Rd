@@ -184,7 +184,9 @@ By default, it is set to \code{NULL}, which yields equal allocation
 among the treatment groups.}
 
 \item{treatment_label}{The treatment labels for treatments in a
-randomization block for design stage prediction.}
+randomization block for design stage prediction.
+It is replaced with the treatment_description
+in the observed data if \code{df} is not \code{NULL}.}
 }
 \value{
 A list that includes the fits of observed data models,
@@ -256,4 +258,7 @@ pred <- getPrediction(
   dropout_model = "exponential",
   pilevel = 0.90, nreps = 100)
 
+}
+\author{
+Kaifeng Lu, \email{kaifenglu@gmail.com}
 }

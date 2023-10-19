@@ -88,3 +88,6 @@ event_fit <- fitEvent(df = interimData2,
                       piecewiseSurvivalTime = c(0, 180))
 
 }
+\author{
+Kaifeng Lu, \email{kaifenglu@gmail.com}
+}

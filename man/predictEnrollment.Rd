@@ -66,7 +66,9 @@ By default, it is set to \code{NULL}, which yields equal allocation
 among the treatment groups.}
 
 \item{treatment_label}{The treatment labels for treatments in a
-randomization block for design stage prediction.}
+randomization block for design stage prediction.
+It is replaced with the treatment_description
+in the observed data if \code{df} is not \code{NULL}.}
 }
 \value{
 A list of prediction results, which includes important information
@@ -108,4 +110,7 @@ enroll_pred <- predictEnrollment(
                     accrualTime = seq(0, 8)*30.4375),
   pilevel = 0.90, nreps = 100)
 
+}
+\author{
+Kaifeng Lu, \email{kaifenglu@gmail.com}
 }

@@ -112,6 +112,8 @@
 #'   among the treatment groups.
 #' @param treatment_label The treatment labels for treatments in a
 #'   randomization block for design stage prediction.
+#'   It is replaced with the treatment_description
+#'   in the observed data if \code{df} is not \code{NULL}.
 #'
 #' @details
 #' For the time-decay model, the mean function is
@@ -167,6 +169,8 @@
 #' @return A list that includes the fits of observed data models,
 #' as well as simulated enrollment data for new subjects and
 #' simulated event data for ongoing and new subjects.
+#'
+#' @author Kaifeng Lu, \email{kaifenglu@@gmail.com}
 #'
 #' @examples
 #' # Event prediction after enrollment completion
@@ -1438,7 +1442,7 @@ getPrediction <- function(
 
       list(stage = "Real-time before enrollment completion",
            to_predict = "Enrollment only",
-           observed = observed, enroll_fit = enroll_fit1,
+           observed = observed, enroll_fit = enroll_fit,
            enroll_pred = enroll_pred)
     } else if (tolower(to_predict) == "enrollment and event") {
       if (showplot) print(event_pred$event_pred_plot)
@@ -1446,14 +1450,14 @@ getPrediction <- function(
       if (tolower(dropout_model) != "none") {
         list(stage = "Real-time before enrollment completion",
              to_predict = "Enrollment and event",
-             observed = observed, enroll_fit = enroll_fit1,
-             enroll_pred = enroll_pred, event_fit = event_fit1,
-             dropout_fit = dropout_fit1, event_pred = event_pred)
+             observed = observed, enroll_fit = enroll_fit,
+             enroll_pred = enroll_pred, event_fit = event_fit,
+             dropout_fit = dropout_fit, event_pred = event_pred)
       } else {
         list(stage = "Real-time before enrollment completion",
              to_predict = "Enrollment and event",
-             observed = observed, enroll_fit = enroll_fit1,
-             enroll_pred = enroll_pred, event_fit = event_fit1,
+             observed = observed, enroll_fit = enroll_fit,
+             enroll_pred = enroll_pred, event_fit = event_fit,
              event_pred = event_pred)
       }
     } else if (tolower(to_predict) == "event only") {
@@ -1462,12 +1466,12 @@ getPrediction <- function(
       if (tolower(dropout_model) != "none") {
         list(stage = "Real-time after enrollment completion",
              to_predict = "Event only",
-             observed = observed, event_fit = event_fit1,
-             dropout_fit = dropout_fit1, event_pred = event_pred)
+             observed = observed, event_fit = event_fit,
+             dropout_fit = dropout_fit, event_pred = event_pred)
       } else {
         list(stage = "Real-time after enrollment completion",
              to_predict = "Event only",
-             observed = observed, event_fit = event_fit1,
+             observed = observed, event_fit = event_fit,
              event_pred = event_pred)
       }
     }

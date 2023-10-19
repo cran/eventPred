@@ -51,3 +51,6 @@ observed2 <- summarizeObserved(df = interimData2,
                                to_predict = "event only")
 
 }
+\author{
+Kaifeng Lu, \email{kaifenglu@gmail.com}
+}

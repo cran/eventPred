@@ -59,3 +59,6 @@ enroll_fit <- fitEnrollment(df = interimData1, enroll_model = "b-spline",
                             nknots = 1)
 
 }
+\author{
+Kaifeng Lu, \email{kaifenglu@gmail.com}
+}

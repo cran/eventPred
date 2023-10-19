@@ -37,6 +37,8 @@
 #'   among the treatment groups.
 #' @param treatment_label The treatment labels for treatments in a
 #'   randomization block for design stage prediction.
+#'   It is replaced with the treatment_description
+#'   in the observed data if \code{df} is not \code{NULL}.
 #'
 #' @details
 #' The \code{enroll_fit} variable can be used for enrollment prediction
@@ -61,6 +63,8 @@
 #' time to reach the target number of subjects, as well as simulated
 #' enrollment data for new subjects. The data for the
 #' prediction plot is also included within the list.
+#'
+#' @author Kaifeng Lu, \email{kaifenglu@@gmail.com}
 #'
 #' @examples
 #' # Enrollment prediction at the design stage
@@ -132,7 +136,28 @@ predictEnrollment <- function(df = NULL, target_n, enroll_fit, lags = 30,
 
   if (by_treatment) {
     if (!is.null(df)) {
-      ngroups = length(table(df$treatment))
+      if (!("treatment_description" %in% names(df))) {
+        df <- df %>% dplyr::mutate(
+          treatment_description = paste0("Treatment ", .data$treatment))
+      }
+
+      treatment_mapping <- df %>%
+        dplyr::select(.data$treatment, .data$treatment_description) %>%
+        dplyr::arrange(.data$treatment) %>%
+        dplyr::group_by(.data$treatment) %>%
+        dplyr::slice(dplyr::n())
+
+      ngroups = nrow(treatment_mapping)
+      treatment_label = treatment_mapping$treatment_description
+    } else if (!is.null(treatment_label)) {
+      treatment_mapping <- dplyr::tibble(
+        treatment = 1:ngroups, treatment_description = treatment_label)
+    } else {
+      treatment_mapping <- dplyr::tibble(
+        treatment = 1:ngroups,
+        treatment_description = paste0("Treatment ", .data$treatment))
+
+      treatment_label = treatment_mapping$treatment_description
     }
 
     if (is.null(alloc)) {
@@ -333,6 +358,7 @@ predictEnrollment <- function(df = NULL, target_n, enroll_fit, lags = 30,
 
   # assign usubjid for new subjects
   newSubjects$usubjid <- rep(paste0("Z-", 100000 + (1:n1)), nreps)
+  newSubjects$arrivalTime <- pmax(round(newSubjects$arrivalTime), 1)
 
 
   if (by_treatment) {
@@ -346,21 +372,6 @@ predictEnrollment <- function(df = NULL, target_n, enroll_fit, lags = 30,
 
     # summary of observed data by treatment
     if (!is.null(df)) {
-      if (!("treatment_description" %in% names(df))) {
-        df <- df %>% dplyr::mutate(
-          treatment_description = paste0("Treatment ", .data$treatment))
-      }
-
-      # order treatment description based on treatment
-      df$treatment_description = stats::reorder(
-        as.factor(df$treatment_description), df$treatment)
-
-      treatment_mapping <- df %>%
-        dplyr::select(.data$treatment, .data$treatment_description) %>%
-        dplyr::arrange(.data$treatment) %>%
-        dplyr::group_by(.data$treatment) %>%
-        dplyr::slice(dplyr::n())
-
       newSubjects <- newSubjects %>%
         dplyr::left_join(treatment_mapping, by = "treatment")
 
@@ -372,11 +383,7 @@ predictEnrollment <- function(df = NULL, target_n, enroll_fit, lags = 30,
       sum_by_trt <- df2 %>%
         dplyr::group_by(.data$treatment, .data$treatment_description) %>%
         dplyr::summarise(n0 = dplyr::n(), .groups = "drop")
-    } else {
-      if (!is.null(treatment_label)) {
-        treatment_mapping <- dplyr::tibble(
-          treatment = 1:ngroups, treatment_description = treatment_label)
-
+    } else if (!is.null(treatment_label)) {
         newSubjects <- newSubjects %>%
           dplyr::left_join(treatment_mapping, by = "treatment")
 
@@ -392,10 +399,6 @@ predictEnrollment <- function(df = NULL, target_n, enroll_fit, lags = 30,
           dplyr::mutate(treatment_description = c(
             paste0("Treatment ", 1:ngroups), "Overall"),
             n0 = 0)
-      }
-
-      sum_by_trt$treatment_description = stats::reorder(
-        as.factor(sum_by_trt$treatment_description), sum_by_trt$treatment)
     }
   }
 
@@ -441,6 +444,7 @@ predictEnrollment <- function(df = NULL, target_n, enroll_fit, lags = 30,
       dplyr::summarise(nenrolled = sum(.data$arrivalTime <= .data$t) + n0,
                        .groups = "drop_last") %>%
       dplyr::summarise(n = quantile(.data$nenrolled, probs = 0.5),
+                       pilevel = pilevel,
                        lower = quantile(.data$nenrolled, probs = plower),
                        upper = quantile(.data$nenrolled, probs = pupper),
                        mean = mean(.data$nenrolled),
@@ -449,17 +453,19 @@ predictEnrollment <- function(df = NULL, target_n, enroll_fit, lags = 30,
 
     if (!is.null(df)) {
       # day 1
-      df0 <- dplyr::tibble(t = 1, n = 0, lower = NA, upper = NA,
-                           mean = 0, var = 0)
+      df0 <- dplyr::tibble(t = 1, n = 0, pilevel = pilevel,
+                           lower = NA, upper = NA, mean = 0, var = 0)
 
       # arrival time for subjects already enrolled before data cut
       dfa1 <- df %>%
-        dplyr::mutate(lower = NA, upper = NA, mean = .data$n, var = 0) %>%
+        dplyr::mutate(pilevel = pilevel, lower = NA, upper = NA,
+                      mean = .data$n, var = 0) %>%
         dplyr::bind_rows(df0) %>%
-        dplyr::bind_rows(dplyr::tibble(t = t0, n = n0, lower = NA,
-                                       upper = NA, mean = n0, var= 0)) %>%
-        dplyr::select(.data$t, .data$n, .data$lower, .data$upper,
-                      .data$mean, .data$var) %>%
+        dplyr::bind_rows(dplyr::tibble(t = t0, n = n0, pilevel = pilevel,
+                                       lower = NA, upper = NA,
+                                       mean = n0, var= 0)) %>%
+        dplyr::select(.data$t, .data$n, .data$pilevel, .data$lower,
+                      .data$upper, .data$mean, .data$var) %>%
         dplyr::group_by(.data$t) %>%
         dplyr::slice(dplyr::n()) %>%
         dplyr::ungroup()
@@ -488,12 +494,14 @@ predictEnrollment <- function(df = NULL, target_n, enroll_fit, lags = 30,
           data = dfa, x = ~date, y = ~n, name = "observed",
           line = list(shape="hv", width=2)) %>%
         plotly::add_lines(
-          x = rep(cutoffdt, 2), y = range(dfs$n), name = "cutoff",
-          line = list(dash="dash"), showlegend = FALSE) %>%
+          x = rep(cutoffdt, 2), y = c(min(dfa$n), max(dfb$upper)),
+          name = "cutoff", line = list(dash="dash"),
+          showlegend = FALSE) %>%
         plotly::layout(
           annotations = list(
             x = cutoffdt, y = 0, text = 'cutoff', xanchor = "left",
-            yanchor = "bottom", font = list(size=12), showarrow = FALSE),
+            yanchor = "bottom", font = list(size=12),
+            showarrow = FALSE),
           xaxis = list(title = "", zeroline = FALSE),
           yaxis = list(title = "Subjects", zeroline = FALSE),
           legend = list(x = 0, y = 1.05, yanchor = "bottom",
@@ -530,6 +538,7 @@ predictEnrollment <- function(df = NULL, target_n, enroll_fit, lags = 30,
                        by = c("treatment", "treatment_description")) %>%
       dplyr::mutate(nenrolled = .data$nenrolled + .data$n0) %>%
       dplyr::summarise(n = quantile(.data$nenrolled, probs = 0.5),
+                       pilevel = pilevel,
                        lower = quantile(.data$nenrolled, probs = plower),
                        upper = quantile(.data$nenrolled, probs = pupper),
                        mean = mean(.data$nenrolled),
@@ -541,7 +550,8 @@ predictEnrollment <- function(df = NULL, target_n, enroll_fit, lags = 30,
       # day 1
       df0 <- sum_by_trt %>%
         dplyr::select(.data$treatment, .data$treatment_description) %>%
-        dplyr::mutate(t = 1, n = 0, lower = NA, upper = NA, mean = 0, var = 0)
+        dplyr::mutate(t = 1, n = 0, pilevel = pilevel, lower = NA,
+                      upper = NA, mean = 0, var = 0)
 
       # arrival time for subjects already enrolled before data cut
       dfa1 <- df2 %>%
@@ -549,14 +559,16 @@ predictEnrollment <- function(df = NULL, target_n, enroll_fit, lags = 30,
         dplyr::arrange(.data$randdt) %>%
         dplyr::mutate(t = as.numeric(.data$randdt - trialsdt + 1),
                       n = dplyr::row_number()) %>%
-        dplyr::mutate(lower = NA, upper = NA, mean = .data$n, var = 0) %>%
+        dplyr::mutate(pilevel = pilevel, lower = NA, upper = NA,
+                      mean = .data$n, var = 0) %>%
         dplyr::bind_rows(df0) %>%
         dplyr::bind_rows(sum_by_trt %>%
-                           dplyr::mutate(t = t0, n = n0, lower = NA,
-                                         upper = NA, mean = n0, var = 0)) %>%
+                           dplyr::mutate(t = t0, n = n0, pilevel = pilevel,
+                                         lower = NA, upper = NA,
+                                         mean = n0, var = 0)) %>%
         dplyr::select(.data$treatment, .data$treatment_description,
-                      .data$t, .data$n, .data$lower, .data$upper,
-                      .data$mean, .data$var) %>%
+                      .data$t, .data$n, .data$pilevel, .data$lower,
+                      .data$upper, .data$mean, .data$var) %>%
         dplyr::group_by(.data$treatment, .data$treatment_description,
                         .data$t) %>%
         dplyr::slice(dplyr::n()) %>%
@@ -594,8 +606,9 @@ predictEnrollment <- function(df = NULL, target_n, enroll_fit, lags = 30,
             data = dfai, x = ~date, y = ~n, name = "observed",
             line = list(shape="hv", width=2)) %>%
           plotly::add_lines(
-            x = rep(cutoffdt, 2), y = range(dfsi$n), name = "cutoff",
-            line = list(dash="dash"), showlegend = FALSE) %>%
+            x = rep(cutoffdt, 2), y = c(min(dfai$n), max(dfbi$upper)),
+            name = "cutoff", line = list(dash="dash"),
+            showlegend = FALSE) %>%
           plotly::layout(
             xaxis = list(title = "", zeroline = FALSE),
             yaxis = list(title = "Subjects", zeroline = FALSE),
