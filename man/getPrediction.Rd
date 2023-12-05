@@ -38,7 +38,11 @@ getPrediction(
   by_treatment = FALSE,
   ngroups = 1,
   alloc = NULL,
-  treatment_label = NULL
+  treatment_label = NULL,
+  covariates_event = NULL,
+  event_prior_with_covariates = NULL,
+  covariates_dropout = NULL,
+  dropout_prior_with_covariates = NULL
 )
 }
 \arguments{
@@ -187,6 +191,20 @@ among the treatment groups.}
 randomization block for design stage prediction.
 It is replaced with the treatment_description
 in the observed data if \code{df} is not \code{NULL}.}
+
+\item{covariates_event}{The names of baseline covariates from the input
+data frame to include in the event model, e.g., c("age", "sex").
+Factor variables need to be declared in the input data frame.}
+
+\item{event_prior_with_covariates}{The prior of event model parameters
+in the presence of covariates.}
+
+\item{covariates_dropout}{The names of baseline covariates from the input
+data frame to include in the dropout model, e.g., c("age", "sex").
+Factor variables need to be declared in the input data frame.}
+
+\item{dropout_prior_with_covariates}{The prior of dropout model
+parameters in the presence of covariates.}
 }
 \value{
 A list that includes the fits of observed data models,

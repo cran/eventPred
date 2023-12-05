@@ -8,7 +8,7 @@ predictEvent(
   df = NULL,
   target_d,
   newSubjects = NULL,
-  event_fit,
+  event_fit = NULL,
   dropout_fit = NULL,
   fixedFollowup = FALSE,
   followupTime = 365,
@@ -21,7 +21,11 @@ predictEvent(
   showOngoing = FALSE,
   showsummary = TRUE,
   showplot = TRUE,
-  by_treatment = FALSE
+  by_treatment = FALSE,
+  covariates_event = NULL,
+  event_fit_with_covariates = NULL,
+  covariates_dropout = NULL,
+  dropout_fit_with_covariates = NULL
 )
 }
 \arguments{
@@ -89,6 +93,20 @@ show the prediction plot. By default, it is set to \code{TRUE}.}
 \item{by_treatment}{A Boolean variable to control whether or not to
 predict event by treatment group. By default,
 it is set to \code{FALSE}.}
+
+\item{covariates_event}{The names of baseline covariates from the input
+data frame to include in the event model, e.g., c("age", "sex").
+Factor variables need to be declared in the input data frame.}
+
+\item{event_fit_with_covariates}{The pre-fitted event model with
+covariates used to generate event predictions for ongoing subjects.}
+
+\item{covariates_dropout}{The names of baseline covariates from the input
+data frame to include in the dropout model, e.g., c("age", "sex").
+Factor variables need to be declared in the input data frame.}
+
+\item{dropout_fit_with_covariates}{The pre-fitted dropout model with
+covariates used to generate dropout predictions for ongoing subjects.}
 }
 \value{
 A list of prediction results which includes important
@@ -110,15 +128,15 @@ To ensure successful event prediction at the design stage, it is
 important to provide the \code{newSubjects} data set.
 
 To specify the event (dropout) model used during the design-stage event
-prediction, the \code{event_fit} (\code{dropout_fit}) be a list with
-one element per treatment. For each treatment, the element should
+prediction, the \code{event_fit} (\code{dropout_fit}) should be a list
+with one element per treatment. For each treatment, the element should
 include \code{w} to specify the weight of the treatment in a
 randomization block, \code{model} to specify the event model
 (exponential, weibull, log-logistic, log-normal, or piecewise
 exponential), \code{theta} and \code{vtheta} to indicate
 the parameter values and the covariance matrix. For the piecewise
 exponential event (dropout) model, the list should also include
-\code{piecewiseSurvivalTime} \code{piecewiseDropoutTime} to indicate
+\code{piecewiseSurvivalTime} (\code{piecewiseDropoutTime}) to indicate
 the location of knots. It should be noted that the model averaging
 and spline options are not appropriate for use during the design stage.
 
@@ -144,6 +162,13 @@ event_pred <- predictEvent(df = interimData2, target_d = 200,
                            dropout_fit = dropout_fit$dropout_fit,
                            pilevel = 0.90, nreps = 100)
 
+}
+\references{
+Emilia Bagiella and Daniel F. Heitjan. Predicting analysis times in
+randomized clinical trials. Stat in Med. 2001; 20:2055-2063.
+
+Gui-shuang Ying and Daniel F. Heitjan. Weibull prediction of event
+times in clinical trials. Pharm Stat. 2008; 7:107-120.
 }
 \author{
 Kaifeng Lu, \email{kaifenglu@gmail.com}

@@ -11,7 +11,8 @@ fitDropout(
   k_dropout = 0,
   scale_dropout = "hazard",
   showplot = TRUE,
-  by_treatment = FALSE
+  by_treatment = FALSE,
+  covariates = NULL
 )
 }
 \arguments{
@@ -54,6 +55,10 @@ set to \code{TRUE}.}
 \item{by_treatment}{A Boolean variable to control whether or not to
 fit the time-to-dropout data by treatment group. By default,
 it is set to \code{FALSE}.}
+
+\item{covariates}{The names of baseline covariates from the input
+data frame to include in the dropout model, e.g., c("age", "sex").
+Factor variables need to be declared in the input data frame.}
 }
 \value{
 A list of results from the model fit including key information
@@ -83,8 +88,15 @@ Fits a specified time-to-dropout model to the dropout data.
 }
 \examples{
 
-dropout_fit <- fitDropout(df = interimData2, dropout_model = "exponential")
+dropout_fit <- fitDropout(df = interimData2,
+                          dropout_model = "exponential")
 
+}
+\references{
+Patrick Royston and Mahesh K. B. Parmar. Flexible parametric
+proportional-hazards and proportional-odds models for censored
+survival data, with application to prognostic modelling and
+estimation of treatment effects. Stat in Med. 2002; 21:2175-2197.
 }
 \author{
 Kaifeng Lu, \email{kaifenglu@gmail.com}

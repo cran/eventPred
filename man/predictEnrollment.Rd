@@ -111,6 +111,10 @@ enroll_pred <- predictEnrollment(
   pilevel = 0.90, nreps = 100)
 
 }
+\references{
+Xiaoxi Zhang and Qi Long. Stochastic modeling and prediction for
+accrual in clinical trials. Stat in Med. 2010; 29:649-658.
+}
 \author{
 Kaifeng Lu, \email{kaifenglu@gmail.com}
 }
