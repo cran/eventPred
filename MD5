@@ -1,6 +1,6 @@
-8864b2806edc86a0c55b75b4c2f654a2 *DESCRIPTION
+cccc57fb8cb9cc25d735a387072995b1 *DESCRIPTION
 94c301b05bb6880e361c4ad39521e2e6 *NAMESPACE
-300a347bd7f1da42b41c84ebe1d72c44 *NEWS.md
+af6c35ab61307ca13df711a53e1a82c8 *NEWS.md
 de473de783804d0c099812c4881bd49f *R/data.R
 f200cffbe2d77bda6b90e0972aa25b46 *R/eventPred-package.R
 3f8b5bb7a2ba466a2e8c22d30fcad7e2 *R/fitDropout.R
@@ -8,7 +8,7 @@ c037d863e62851c273fb620b5f972066 *R/fitEnrollment.R
 a62bf819a51e8fae1b66aad0fa494b5d *R/fitEvent.R
 4ae6032fd7f28a8a4d4e8faf7101c10f *R/getPrediction.R
 d01a31d65ee1b8059cb762dae8a1194c *R/predictEnrollment.R
-434fed5630fe1befc10e039bc3059ee0 *R/predictEvent.R
+396bb18543eb10722e48005e716e35a3 *R/predictEvent.R
 f282461478672339050626c001cd9d53 *R/summarizeObserved.R
 9c131fba6e4c885fe7e81158826802ad *R/utilities.R
 3174bec9bfca111ec0d001530bb6e5b7 *data/finalData.rda

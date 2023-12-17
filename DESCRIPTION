@@ -1,7 +1,7 @@
 Package: eventPred
 Title: Event Prediction
-Version: 0.2.2
-Date: 2023-12-04
+Version: 0.2.3
+Date: 2023-12-16
 Authors@R: 
     person("Kaifeng", "Lu", , "kaifenglu@gmail.com", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0002-6160-7119"))
@@ -19,8 +19,8 @@ LazyData: true
 URL: https://github.com/kaifenglu/eventPred
 BugReports: https://github.com/kaifenglu/eventPred/issues
 NeedsCompilation: no
-Packaged: 2023-12-04 22:51:15 UTC; kaife
+Packaged: 2023-12-17 00:12:29 UTC; kaife
 Author: Kaifeng Lu [aut, cre] (<https://orcid.org/0000-0002-6160-7119>)
 Maintainer: Kaifeng Lu <kaifenglu@gmail.com>
 Repository: CRAN
-Date/Publication: 2023-12-05 00:40:06 UTC
+Date/Publication: 2023-12-17 01:20:02 UTC
