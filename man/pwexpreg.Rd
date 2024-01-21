@@ -4,23 +4,23 @@
 \alias{pwexpreg}
 \title{Piecewise exponential regression}
 \usage{
-pwexpreg(data, tcut = 0, event = "event", covariates = NULL)
+pwexpreg(time, event, J, tcut, q, x)
 }
 \arguments{
-\item{data}{The input data frame. It should contain \code{time},
-\code{event}, and variables specified in \code{covariates}.}
+\item{time}{The survival time.}
 
-\item{tcut}{A vector that specifies the time intervals
-for the piecewise exponential survival distribution.
+\item{event}{The event indicator.}
+
+\item{J}{The number of time intervals.}
+
+\item{tcut}{A vector that specifies the endpoints of time intervals
+for the baseline piecewise exponential survival distribution.
 Must start with 0, e.g., c(0, 60) breaks the time axis into 2 event
 intervals: [0, 60) and [60, Inf). By default, it is set to 0.}
 
-\item{event}{The variable name indicating event, e.g. "event" or
-"dropout".}
+\item{q}{The number of columns of the covariates matrix.}
 
-\item{covariates}{The names of baseline covariates in
-the input data frame, e.g., c("age", "sex").
-Factor variables need to declared in the input data frame.}
+\item{x}{The covariates matrix (excluding the intercept).}
 }
 \value{
 The maximum likelihood estimates and the associated
