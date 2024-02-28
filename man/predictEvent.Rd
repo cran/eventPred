@@ -158,8 +158,8 @@ dropout_fit <- fitDropout(df = interimData2,
                           dropout_model = "exponential")
 
 event_pred <- predictEvent(df = interimData2, target_d = 200,
-                           event_fit = event_fit$event_fit,
-                           dropout_fit = dropout_fit$dropout_fit,
+                           event_fit = event_fit$fit,
+                           dropout_fit = dropout_fit$fit,
                            pilevel = 0.90, nreps = 100)
 
 }
