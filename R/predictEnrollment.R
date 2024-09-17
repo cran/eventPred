@@ -39,6 +39,10 @@
 #'   randomization block for design stage prediction.
 #'   It is replaced with the treatment_description
 #'   in the observed data if \code{df} is not \code{NULL}.
+#' @param fix_parameter Whether to fix parameters at the maximum
+#'   likelihood estimates when generating new data for prediction.
+#'   Defaults to FALSE, in which case, parameters will be drawn from
+#'   their approximate posterior distributions.
 #'
 #' @details
 #' The \code{enroll_fit} variable can be used for enrollment prediction
@@ -87,7 +91,8 @@ predictEnrollment <- function(df = NULL, target_n, enroll_fit, lags = 30,
                               pilevel = 0.90, nyears = 4, nreps = 500,
                               showsummary = TRUE, showplot = TRUE,
                               by_treatment = FALSE, ngroups = 1,
-                              alloc = NULL, treatment_label = NULL) {
+                              alloc = NULL, treatment_label = NULL,
+                              fix_parameter = FALSE) {
   if (!is.null(df)) erify::check_class(df, "data.frame")
   erify::check_n(target_n)
 
@@ -223,9 +228,14 @@ predictEnrollment <- function(df = NULL, target_n, enroll_fit, lags = 30,
 
 
   if (tolower(enroll_fit$model) == "poisson") {
-    # draw parameter from posterior distribution
-    theta = rnorm(nreps, mean = enroll_fit$theta,
-                  sd = sqrt(enroll_fit$vtheta))
+    if (!fix_parameter) {
+      # draw parameter from posterior distribution
+      theta = rnorm(nreps, mean = enroll_fit$theta,
+                    sd = sqrt(enroll_fit$vtheta))
+    } else {
+      # fix at the MLE
+      theta = rep(enroll_fit$theta, nreps)
+    }
 
     # draw arrival time for new subjects
     newEnrollment_po <- function(t0, n1, theta, nreps) {
@@ -245,9 +255,15 @@ predictEnrollment <- function(df = NULL, target_n, enroll_fit, lags = 30,
 
     newSubjects <- newEnrollment_po(t0, n1, theta, nreps)
   } else if (tolower(enroll_fit$model) == "time-decay") {
-    # draw parameter from posterior distribution
-    theta = mvtnorm::rmvnorm(nreps, mean = enroll_fit$theta,
-                             sigma = enroll_fit$vtheta)
+    if (!fix_parameter) {
+      # draw parameter from posterior distribution
+      theta = mvtnorm::rmvnorm(nreps, mean = enroll_fit$theta,
+                               sigma = enroll_fit$vtheta)
+    } else {
+      # fix at the MLE
+      theta = matrix(enroll_fit$theta, nreps, length(enroll_fit$theta),
+                     byrow = TRUE)
+    }
 
     # mean function of the NHPP
     fmu_td <- function(t, theta) {
@@ -297,9 +313,15 @@ predictEnrollment <- function(df = NULL, target_n, enroll_fit, lags = 30,
       stop("B-spline enrollment model cannot be used at the design stage")
     }
 
-    # draw parameter from posterior distribution
-    theta = mvtnorm::rmvnorm(nreps, mean = enroll_fit$theta,
-                             sigma = enroll_fit$vtheta)
+    if (!fix_parameter) {
+      # draw parameter from posterior distribution
+      theta = mvtnorm::rmvnorm(nreps, mean = enroll_fit$theta,
+                               sigma = enroll_fit$vtheta)
+    } else {
+      # fix at the MLE
+      theta = matrix(enroll_fit$theta, nreps, length(enroll_fit$theta),
+                     byrow = TRUE)
+    }
 
     newEnrollment_bs <- function(t0, n1, theta, x, lags, nreps) {
       lambda = exp(x %*% t(theta))
@@ -324,13 +346,24 @@ predictEnrollment <- function(df = NULL, target_n, enroll_fit, lags = 30,
                                     lags, nreps)
   } else if (tolower(enroll_fit$model) == "piecewise poisson") {
     # draw parameter from posterior distribution
-    if (length(enroll_fit$theta) == 1) {
-      theta = matrix(rnorm(nreps, mean = enroll_fit$theta,
-                           sd = sqrt(enroll_fit$vtheta)), ncol=1)
+    if (!fix_parameter) {
+      if (length(enroll_fit$theta) == 1) {
+        theta = matrix(rnorm(nreps, mean = enroll_fit$theta,
+                             sd = sqrt(enroll_fit$vtheta)), ncol=1)
+      } else {
+        theta = mvtnorm::rmvnorm(nreps, mean = enroll_fit$theta,
+                                 sigma = enroll_fit$vtheta)
+      }
     } else {
-      theta = mvtnorm::rmvnorm(nreps, mean = enroll_fit$theta,
-                               sigma = enroll_fit$vtheta)
+      if (length(enroll_fit$theta) == 1) {
+        theta = matrix(rep(enroll_fit$theta, nreps), ncol=1)
+      } else {
+        theta = matrix(enroll_fit$theta, nreps, length(enroll_fit$theta),
+                       byrow = TRUE)
+      }
     }
+
+
     u = enroll_fit$accrualTime
 
     # mu(t[j]) - mu(t[j-1]) is standard exponential distribution, t[0]=t0

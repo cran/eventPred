@@ -42,7 +42,8 @@ getPrediction(
   covariates_event = NULL,
   event_prior_with_covariates = NULL,
   covariates_dropout = NULL,
-  dropout_prior_with_covariates = NULL
+  dropout_prior_with_covariates = NULL,
+  fix_parameter = FALSE
 )
 }
 \arguments{
@@ -205,6 +206,11 @@ Factor variables need to be declared in the input data frame.}
 
 \item{dropout_prior_with_covariates}{The prior of dropout model
 parameters in the presence of covariates.}
+
+\item{fix_parameter}{Whether to fix parameters at the maximum
+likelihood estimates when generating new data for prediction.
+Defaults to FALSE, in which case, parameters will be drawn from
+their approximate posterior distribution.}
 }
 \value{
 A list that includes the fits of observed data models,

@@ -1,7 +1,5 @@
 #' @name eventPred-package
 #' @aliases eventPred-package
-#' @keywords internal
-#' "_PACKAGE"
 #'
 #' @title Event Prediction
 #'

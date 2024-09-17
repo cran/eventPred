@@ -416,7 +416,9 @@ fitDropout <- function(df, dropout_model = "exponential",
       fit3$treatment_description = df1$treatment_description[1]
     }
 
-    dropout_fit[[i]] = list(fit = fit3, fit_plot = fittedDropout)
+    dropout_fit[[i]] = list(fit = fit3, fit_plot = fittedDropout,
+                            kmdf = kmdf, dffit = dffit3,
+                            text = c(modeltext, aictext, bictext))
   }
 
   # ensure that the sub plots share the same x axis range

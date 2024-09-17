@@ -124,6 +124,10 @@
 #'   Factor variables need to be declared in the input data frame.
 #' @param dropout_prior_with_covariates The prior of dropout model
 #'   parameters in the presence of covariates.
+#' @param fix_parameter Whether to fix parameters at the maximum
+#'   likelihood estimates when generating new data for prediction.
+#'   Defaults to FALSE, in which case, parameters will be drawn from
+#'   their approximate posterior distribution.
 #'
 #' @details
 #' For the time-decay model, the mean function is
@@ -216,7 +220,8 @@ getPrediction <- function(
     covariates_event = NULL,
     event_prior_with_covariates = NULL,
     covariates_dropout = NULL,
-    dropout_prior_with_covariates = NULL) {
+    dropout_prior_with_covariates = NULL,
+    fix_parameter = FALSE) {
 
   if (!is.null(df)) erify::check_class(df, "data.frame")
 
@@ -845,13 +850,15 @@ getPrediction <- function(
       enroll_pred <- predictEnrollment(
         df = df, target_n, enroll_fit = enroll_fit1,
         lags, pilevel, nyears, nreps, showsummary, showplot = FALSE,
-        by_treatment, ngroups, alloc, treatment_label)
+        by_treatment, ngroups, alloc, treatment_label,
+        fix_parameter = fix_parameter)
     } else {
       # enrollment prediction at the design stage
       enroll_pred <- predictEnrollment(
         df = NULL, target_n, enroll_fit = enroll_prior,
         lags, pilevel, nyears, nreps, showsummary, showplot = FALSE,
-        by_treatment, ngroups, alloc, treatment_label)
+        by_treatment, ngroups, alloc, treatment_label,
+        fix_parameter = fix_parameter)
     }
   }
 
@@ -1644,7 +1651,8 @@ getPrediction <- function(
             showEnrollment, showEvent, showDropout, showOngoing,
             showsummary, showplot = FALSE, by_treatment,
             covariates_event, event_fit1_w_x,
-            covariates_dropout, dropout_fit1_w_x)
+            covariates_dropout, dropout_fit1_w_x,
+            fix_parameter = fix_parameter)
         } else {
           event_pred <- predictEvent(
             df = df, target_d,
@@ -1655,7 +1663,8 @@ getPrediction <- function(
             showEnrollment, showEvent, showDropout, showOngoing,
             showsummary, showplot = FALSE, by_treatment,
             covariates_event, event_fit1_w_x,
-            covariates_dropout, dropout_fit1_w_x)
+            covariates_dropout, dropout_fit1_w_x,
+            fix_parameter = fix_parameter)
         }
       } else {  # no dropout model
         if (grepl("enrollment", to_predict, ignore.case = TRUE)) {
@@ -1667,7 +1676,8 @@ getPrediction <- function(
             fixedFollowup, followupTime, pilevel, nyears, nreps,
             showEnrollment, showEvent, showDropout, showOngoing,
             showsummary, showplot = FALSE, by_treatment,
-            covariates_event, event_fit1_w_x)
+            covariates_event, event_fit1_w_x,
+            fix_parameter = fix_parameter)
         } else {
           event_pred <- predictEvent(
             df = df, target_d,
@@ -1677,7 +1687,8 @@ getPrediction <- function(
             fixedFollowup, followupTime, pilevel, nyears, nreps,
             showEnrollment, showEvent, showDropout, showOngoing,
             showsummary, showplot = FALSE, by_treatment,
-            covariates_event, event_fit1_w_x)
+            covariates_event, event_fit1_w_x,
+            fix_parameter = fix_parameter)
         }
       }
     } else { # event prediction at design stage
@@ -1689,7 +1700,8 @@ getPrediction <- function(
           dropout_fit = dropout_prior,
           fixedFollowup, followupTime, pilevel, nyears, nreps,
           showEnrollment, showEvent, showDropout, showOngoing,
-          showsummary, showplot = FALSE, by_treatment)
+          showsummary, showplot = FALSE, by_treatment,
+          fix_parameter = fix_parameter)
       } else {
         event_pred <- predictEvent(
           df = NULL, target_d,
@@ -1698,7 +1710,8 @@ getPrediction <- function(
           dropout_fit = NULL,
           fixedFollowup, followupTime, pilevel, nyears, nreps,
           showEnrollment, showEvent, showDropout, showOngoing,
-          showsummary, showplot = FALSE, by_treatment)
+          showsummary, showplot = FALSE, by_treatment,
+          fix_parameter = fix_parameter)
       }
     }
   }

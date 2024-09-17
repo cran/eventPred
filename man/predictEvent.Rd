@@ -25,7 +25,8 @@ predictEvent(
   covariates_event = NULL,
   event_fit_with_covariates = NULL,
   covariates_dropout = NULL,
-  dropout_fit_with_covariates = NULL
+  dropout_fit_with_covariates = NULL,
+  fix_parameter = FALSE
 )
 }
 \arguments{
@@ -107,6 +108,11 @@ Factor variables need to be declared in the input data frame.}
 
 \item{dropout_fit_with_covariates}{The pre-fitted dropout model with
 covariates used to generate dropout predictions for ongoing subjects.}
+
+\item{fix_parameter}{Whether to fix parameters at the maximum
+likelihood estimates when generating new data for prediction.
+Defaults to FALSE, in which case, parameters will be drawn from
+their approximate posterior distribution.}
 }
 \value{
 A list of prediction results which includes important

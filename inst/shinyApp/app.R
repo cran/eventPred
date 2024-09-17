@@ -799,6 +799,8 @@ ui <- fluidPage(
         lapply(2:6, f_treatment_allocation)
       ),
 
+      checkboxInput(
+        "fix_parameter", label = "Fix parameters?", value = FALSE),
 
       fluidRow(
         column(7, numericInput(
@@ -1677,7 +1679,8 @@ server <- function(input, output, session) {
           by_treatment = input$by_treatment,
           ngroups = k(),
           alloc = treatment_allocation(),
-          treatment_label = treatment_description())
+          treatment_label = treatment_description(),
+          fix_parameter = input$fix_parameter)
       } else if (to_predict() == "Enrollment and event") {
         getPrediction(
           to_predict = to_predict(),
@@ -1698,7 +1701,8 @@ server <- function(input, output, session) {
           by_treatment = input$by_treatment,
           ngroups = k(),
           alloc = treatment_allocation(),
-          treatment_label = treatment_description())
+          treatment_label = treatment_description(),
+          fix_parameter = input$fix_parameter)
       }
     } else { # real-time prediction
       shiny::validate(
@@ -1724,7 +1728,8 @@ server <- function(input, output, session) {
           showsummary = FALSE,
           showplot = FALSE,
           by_treatment = input$by_treatment,
-          alloc = treatment_allocation())
+          alloc = treatment_allocation(),
+          fix_parameter = input$fix_parameter)
       } else if (to_predict() == "Enrollment and event") {
         shiny::validate(
           need(target_n() > observed()$n0,
@@ -1768,7 +1773,8 @@ server <- function(input, output, session) {
           showsummary = FALSE,
           showplot = FALSE,
           by_treatment = input$by_treatment,
-          alloc = treatment_allocation())
+          alloc = treatment_allocation(),
+          fix_parameter = input$fix_parameter)
       } else if (to_predict() == "Event only") {
         shiny::validate(
           need(target_d() > observed()$d0,
@@ -1801,7 +1807,8 @@ server <- function(input, output, session) {
           showOngoing = showOngoing(),
           showsummary = FALSE,
           showplot = FALSE,
-          by_treatment = input$by_treatment)
+          by_treatment = input$by_treatment,
+          fix_parameter = input$fix_parameter)
       }
     }
   })
@@ -2843,6 +2850,7 @@ server <- function(input, output, session) {
         treatment_allocation = matrix(
           treatment_allocation(), ncol=1,
           dimnames = list(treatment_description(), "Size")),
+        fix_parameter = input$fix_parameter,
         nreps = nreps(),
         seed = input$seed,
 
@@ -2969,6 +2977,7 @@ server <- function(input, output, session) {
         value=x$treatment_allocation)
     }
 
+    updateNumericInput(session, "fix_parameter", value=x$fix_parameter)
     updateNumericInput(session, "nreps", value=x$nreps)
     updateNumericInput(session, "seed", value=x$seed)
 

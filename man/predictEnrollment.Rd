@@ -17,7 +17,8 @@ predictEnrollment(
   by_treatment = FALSE,
   ngroups = 1,
   alloc = NULL,
-  treatment_label = NULL
+  treatment_label = NULL,
+  fix_parameter = FALSE
 )
 }
 \arguments{
@@ -69,6 +70,11 @@ among the treatment groups.}
 randomization block for design stage prediction.
 It is replaced with the treatment_description
 in the observed data if \code{df} is not \code{NULL}.}
+
+\item{fix_parameter}{Whether to fix parameters at the maximum
+likelihood estimates when generating new data for prediction.
+Defaults to FALSE, in which case, parameters will be drawn from
+their approximate posterior distributions.}
 }
 \value{
 A list of prediction results, which includes important information

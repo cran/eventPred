@@ -126,5 +126,3 @@ estimation of treatment effects. Stat in Med. 2002; 21:2175-2197.
 \author{
 Kaifeng Lu, \email{kaifenglu@gmail.com}
 }
-\keyword{"_PACKAGE"}
-\keyword{internal}

@@ -415,7 +415,9 @@ fitEvent <- function(df, event_model = "model averaging",
       fit2$treatment_description = df1$treatment_description[1]
     }
 
-    event_fit[[i]] = list(fit = fit2, fit_plot = fittedEvent)
+    event_fit[[i]] = list(fit = fit2, fit_plot = fittedEvent,
+                          kmdf = kmdf, dffit = dffit2,
+                          text = c(modeltext, aictext, bictext))
   }
 
   # ensure that the sub plots share the same x axis range
