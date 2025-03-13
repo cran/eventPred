@@ -6,14 +6,17 @@
 \usage{
 predictEvent(
   df = NULL,
-  target_d,
+  target_d = NA,
   newSubjects = NULL,
   event_fit = NULL,
+  m = 5,
   dropout_fit = NULL,
+  m_dropout = 5,
   fixedFollowup = FALSE,
   followupTime = 365,
   pilevel = 0.9,
   nyears = 4,
+  target_t = NA,
   nreps = 500,
   showEnrollment = TRUE,
   showEvent = TRUE,
@@ -48,9 +51,15 @@ indicating the completion of subject enrollment.}
 \item{event_fit}{The pre-fitted event model used to generate
 predictions.}
 
+\item{m}{The number of event time intervals to extrapolate the hazard
+function beyond the last observed event time.}
+
 \item{dropout_fit}{The pre-fitted dropout model used to generate
 predictions. By default, it is set to \code{NULL},
 indicating no dropout.}
+
+\item{m_dropout}{The number of dropout time intervals to extrapolate
+the hazard function beyond the last observed dropout time.}
 
 \item{fixedFollowup}{A Boolean variable indicating whether a fixed
 follow-up design is used. By default, it is set to \code{FALSE}
@@ -64,6 +73,10 @@ it is set to 0.90.}
 
 \item{nyears}{The number of years after the data cut for prediction.
 By default, it is set to 4.}
+
+\item{target_t}{The target number of days after the data cutoff
+used to predict both the number of events and the probability
+of achieving the target event count.}
 
 \item{nreps}{The number of replications for simulation. By default,
 it is set to 500. If \code{newSubjects} is not \code{NULL},
@@ -119,8 +132,11 @@ A list of prediction results which includes important
 information such as the median, lower and upper percentiles for
 the estimated day and date to reach the target number of events,
 as well as simulated event data for both ongoing and new subjects.
-The data for the prediction plot is also included
-within this list.
+The data for the prediction plot is also included within this list.
+If target_t is specified, it additionally provides the median,
+lower, and upper percentiles of the event count at target_t,
+as well as the predictive probability of achieving the target
+number of events by target_t.
 }
 \description{
 Utilizes pre-fitted time-to-event and time-to-dropout models
@@ -135,11 +151,10 @@ important to provide the \code{newSubjects} data set.
 
 To specify the event (dropout) model used during the design-stage event
 prediction, the \code{event_fit} (\code{dropout_fit}) should be a list
-with one element per treatment. For each treatment, the element should
-include \code{w} to specify the weight of the treatment in a
-randomization block, \code{model} to specify the event model
+with one element per treatment. For each treatment, the element
+should include \code{model} to specify the event model
 (exponential, weibull, log-logistic, log-normal, or piecewise
-exponential), \code{theta} and \code{vtheta} to indicate
+exponential), and \code{theta} and \code{vtheta} to indicate
 the parameter values and the covariance matrix. For the piecewise
 exponential event (dropout) model, the list should also include
 \code{piecewiseSurvivalTime} (\code{piecewiseDropoutTime}) to indicate
@@ -155,18 +170,22 @@ and dropout times for both ongoing and new subjects in the trial.
 \examples{
 
 # Event prediction after enrollment completion
+set.seed(2000)
 
-event_fit <- fitEvent(df = interimData2,
-                      event_model = "piecewise exponential",
-                      piecewiseSurvivalTime = c(0, 140, 352))
+event_fits <- fitEvent(
+  df = interimData2,
+  event_model = "piecewise exponential",
+  piecewiseSurvivalTime = c(0, 140, 352))
 
-dropout_fit <- fitDropout(df = interimData2,
-                          dropout_model = "exponential")
+dropout_fits <- fitDropout(
+  df = interimData2,
+  dropout_model = "exponential")
 
-event_pred <- predictEvent(df = interimData2, target_d = 200,
-                           event_fit = event_fit$fit,
-                           dropout_fit = dropout_fit$fit,
-                           pilevel = 0.90, nreps = 100)
+event_pred <- predictEvent(
+  df = interimData2, target_d = 200,
+  event_fit = event_fits$fit,
+  dropout_fit = dropout_fits$fit,
+  pilevel = 0.90, nreps = 100)
 
 }
 \references{

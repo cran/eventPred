@@ -10,6 +10,7 @@ fitEvent(
   piecewiseSurvivalTime = 0,
   k = 0,
   scale = "hazard",
+  m = 5,
   showplot = TRUE,
   by_treatment = FALSE,
   covariates = NULL
@@ -24,7 +25,8 @@ for fitting the event model by treatment.}
 \item{event_model}{The event model used to analyze the event data
 which can be set to one of the following options:
 "exponential", "Weibull", "log-logistic", "log-normal",
-"piecewise exponential", "model averaging", or "spline".
+"piecewise exponential", "model averaging", "spline", or
+"cox model".
 The model averaging uses the \code{exp(-bic/2)} weighting and
 combines Weibull and log-normal models. The spline model of
 Royston and Parmar (2002) assumes that a transformation of
@@ -47,6 +49,9 @@ minimum and maximum log uncensored survival times.}
 as a spline function. If "odds", the log cumulative odds is
 modeled as a spline function. If "normal", -qnorm(S(t)) is
 modeled as a spline function.}
+
+\item{m}{The number of event time intervals to extrapolate the hazard
+function beyond the last observed event time.}
 
 \item{showplot}{A Boolean variable to control whether or not to
 show the fitted time-to-event survival curve. By default, it is
@@ -77,6 +82,27 @@ to the Weibull component is indicated by the \code{w1} variable.
 If the spline option is chosen, the \code{knots} and \code{scale}
 will be included in the list of results.
 
+If the cox model option is chosen, the list of results will include
+\code{model}, \code{theta}, \code{vtheta}, \code{aic}, \code{bic}, and
+\code{piecewiseSurvivalTime}. Here
+\deqn{\theta = (\log(\lambda_1), \ldots, \log(\lambda_M), \beta^T)^T,}
+\eqn{M} denotes the number of distinct observed event times,
+\eqn{t_1 < \cdots < t_M},
+\eqn{\lambda_j} denotes the estimated hazard rate in the \eqn{j}th
+event time interval, \eqn{(t_{j-1}, t_j]}, and
+\eqn{\beta} represents the regression
+coefficients (log hazard ratios) from the Cox model.
+For a fair comparison, the estimation of baseline hazards is
+incorporated into the \code{aic} and \code{bic} values.
+In addition, \eqn{\mbox{piecewiseSurvivalTime} = (0, t_1, \ldots, t_M)}.
+To extend the survival curve
+beyond the last observed event time, a weighted average of the hazard
+rates from the final \code{m} event time intervals is used.
+The weights are proportional to the lengths of those intervals, i.e.,
+\deqn{\lambda_{M+1} = \sum_{j=M-m+1}^{M} w_j \lambda_j,}
+where \eqn{w_j = (t_j - t_{j-1})/(t_M - t_{M-m})} for
+\eqn{j=M-m+1,\ldots,M}.
+
 When fitting the event model by treatment, the outcome is presented
 as a list of lists, where each list element corresponds to a
 specific treatment group.
@@ -88,9 +114,10 @@ Fits a specified time-to-event model to the event data.
 }
 \examples{
 
-event_fit <- fitEvent(df = interimData2,
-                      event_model = "piecewise exponential",
-                      piecewiseSurvivalTime = c(0, 180))
+event_fit <- fitEvent(
+  df = interimData2,
+  event_model = "piecewise exponential",
+  piecewiseSurvivalTime = c(0, 180))
 
 }
 \references{

@@ -18,16 +18,19 @@ getPrediction(
   piecewiseSurvivalTime = 0,
   k = 0,
   scale = "hazard",
+  m = 5,
   event_prior = NULL,
   dropout_model = "exponential",
   piecewiseDropoutTime = 0,
   k_dropout = 0,
   scale_dropout = "hazard",
+  m_dropout = 5,
   dropout_prior = NULL,
   fixedFollowup = FALSE,
   followupTime = 365,
   pilevel = 0.9,
   nyears = 4,
+  target_t = NA,
   nreps = 500,
   showEnrollment = TRUE,
   showEvent = TRUE,
@@ -85,7 +88,8 @@ By default, it is set to 0.}
 \item{event_model}{The event model used to analyze the event data
 which can be set to one of the following options:
 "exponential", "Weibull", "log-logistic", "log-normal",
-"piecewise exponential", "model averaging", or "spline".
+"piecewise exponential", "model averaging", "spline", or
+"cox model".
 The model averaging uses the \code{exp(-bic/2)} weighting and
 combines Weibull and log-normal models. By default, it is set to
 "model averaging".}
@@ -108,12 +112,16 @@ as a spline function. If "odds", the log cumulative odds is
 modeled as a spline function. If "normal", -qnorm(S(t)) is
 modeled as a spline function.}
 
+\item{m}{The number of event time intervals to extrapolate the hazard
+function beyond the last observed event time.}
+
 \item{event_prior}{The prior of event model parameters.}
 
 \item{dropout_model}{The dropout model used to analyze the dropout data
 which can be set to one of the following options:
 "none", "exponential", "Weibull", "log-logistic", "log-normal",
-"piecewise exponential", "model averaging", or "spline".
+"piecewise exponential", "model averaging", "spline", or
+"cox model".
 The model averaging uses the \code{exp(-bic/2)} weighting and
 combines Weibull and log-normal models. By default, it is set to
 "exponential".}
@@ -131,10 +139,13 @@ The knots are chosen as equally-spaced quantiles of the log
 uncensored survival times. The boundary knots are chosen as the
 minimum and maximum log uncensored survival times.}
 
-\item{scale_dropout}{If "hazard", the log cumulative hazard is modeled
-as a spline function. If "odds", the log cumulative odds is
+\item{scale_dropout}{If "hazard", the log cumulative hazard for dropout
+is modeled as a spline function. If "odds", the log cumulative odds is
 modeled as a spline function. If "normal", -qnorm(S(t)) is
 modeled as a spline function.}
+
+\item{m_dropout}{The number of dropout time intervals to extrapolate
+the hazard function beyond the last observed dropout time.}
 
 \item{dropout_prior}{The prior of dropout model parameters.}
 
@@ -150,6 +161,10 @@ it is set to 0.90.}
 
 \item{nyears}{The number of years after the data cut for prediction.
 By default, it is set to 4.}
+
+\item{target_t}{The target number of days after the data cutoff
+used to predict both the number of events and the probability
+of achieving the target event count.}
 
 \item{nreps}{The number of replications for simulation. By default,
 it is set to 500.}
@@ -209,7 +224,7 @@ parameters in the presence of covariates.}
 
 \item{fix_parameter}{Whether to fix parameters at the maximum
 likelihood estimates when generating new data for prediction.
-Defaults to FALSE, in which case, parameters will be drawn from
+Defaults to \code{FALSE}, in which case, parameters will be drawn from
 their approximate posterior distribution.}
 }
 \value{
@@ -223,11 +238,11 @@ observed data and specified enrollment and event models.
 }
 \details{
 For the time-decay model, the mean function is
-\code{mu(t) = mu/delta*(t - 1/delta*(1 - exp(-delta*t)))}
+\eqn{\mu(t) = (\mu/\delta)(t - (1/\delta)(1 - \exp(-\delta t)))}
 and the rate function is
-\code{lambda(t) = mu/delta*(1 - exp(-delta*t))}.
+\eqn{\lambda(t) = (\mu/\delta)(1 - \exp(-\delta t))}.
 For the B-spline model, the daily enrollment rate is approximated as
-\code{lambda(t) = exp(B(t)*theta)},
+\eqn{\lambda(t) = \exp(B(t)' \theta)},
 where \code{B(t)} represents the B-spline basis functions.
 
 The \code{enroll_prior} variable should be a list that
@@ -245,13 +260,13 @@ the \code{event_prior} (\code{dropout_prior}) variable should be
 a list with one element per treatment. For each treatment, the
 element should include \code{model} to specify the event (dropout)
 model (exponential, weibull, log-logistic, log-normal,
-or piecewise exponential), \code{theta} and \code{vtheta} to
+or piecewise exponential), and \code{theta} and \code{vtheta} to
 indicate the parameter values and the covariance matrix.
 For the piecewise exponential event (dropout) model, the list
 should also include \code{piecewiseSurvivalTime}
 (\code{piecewiseDropoutTime}) to indicate the location of knots.
-It should be noted that the model averaging and spline options
-are not appropriate for use as prior.
+It should be noted that the model averaging, spline, and
+cox model options are not appropriate for use as prior.
 
 If the event prediction is not by treatment while the prior
 information is given by treatment, then each element of
@@ -274,6 +289,7 @@ for enhanced modeling flexibility.
 }
 \examples{
 # Event prediction after enrollment completion
+set.seed(3000)
 
 pred <- getPrediction(
   df = interimData2, to_predict = "event only",

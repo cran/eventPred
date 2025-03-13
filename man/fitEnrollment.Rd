@@ -46,17 +46,18 @@ Fits a specified enrollment model to the enrollment data.
 }
 \details{
 For the time-decay model, the mean function is
-\code{mu(t) = mu/delta*(t - 1/delta*(1 - exp(-delta*t)))}
+\deqn{\mu(t) = (\mu/\delta)(t - (1/\delta)(1 - \exp(-\delta t)))}
 and the rate function is
-\code{lambda(t) = mu/delta*(1 - exp(-delta*t))}.
-For the B-spline model, the daily enrollment rate is approximated as
-\code{lambda(t) = exp(B(t)*theta)},
-where \code{B(t)} represents the B-spline basis functions.
+\deqn{\lambda(t) = (\mu/\delta)(1 - \exp(-\delta t)).}
+For the B-spline model, the daily enrollment rate is
+\eqn{\lambda(t) = \exp(B(t)' \theta)},
+where \eqn{B(t)} represents the B-spline basis functions.
 }
 \examples{
 
-enroll_fit <- fitEnrollment(df = interimData1, enroll_model = "b-spline",
-                            nknots = 1)
+enroll_fit <- fitEnrollment(
+  df = interimData1, enroll_model = "b-spline",
+  nknots = 1)
 
 }
 \references{

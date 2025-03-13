@@ -76,23 +76,27 @@
 #'
 #' @examples
 #' # Enrollment prediction at the design stage
+#' set.seed(1000)
 #'
 #' enroll_pred <- predictEnrollment(
 #'   target_n = 300,
-#'   enroll_fit = list(model = "piecewise poisson",
-#'                     theta = log(26/9*seq(1, 9)/30.4375),
-#'                     vtheta = diag(9)*1e-8,
-#'                     accrualTime = seq(0, 8)*30.4375),
+#'   enroll_fit = list(
+#'     model = "piecewise poisson",
+#'     theta = log(26/9*seq(1, 9)/30.4375),
+#'     vtheta = diag(9)*1e-8,
+#'     accrualTime = seq(0, 8)*30.4375),
 #'   pilevel = 0.90, nreps = 100)
 #'
 #' @export
 #'
-predictEnrollment <- function(df = NULL, target_n, enroll_fit, lags = 30,
+predictEnrollment <- function(df = NULL, target_n = NA,
+                              enroll_fit = NULL, lags = 30,
                               pilevel = 0.90, nyears = 4, nreps = 500,
                               showsummary = TRUE, showplot = TRUE,
                               by_treatment = FALSE, ngroups = 1,
                               alloc = NULL, treatment_label = NULL,
                               fix_parameter = FALSE) {
+
   if (!is.null(df)) erify::check_class(df, "data.frame")
   erify::check_n(target_n)
 
@@ -130,42 +134,41 @@ predictEnrollment <- function(df = NULL, target_n, enroll_fit, lags = 30,
     }
   }
 
-
-
   erify::check_n(lags, zero = TRUE)
   erify::check_positive(pilevel)
   erify::check_positive(1-pilevel)
+  erify::check_positive(nyears)
   erify::check_n(nreps)
   erify::check_bool(showsummary)
   erify::check_bool(showplot)
   erify::check_bool(by_treatment)
   erify::check_n(ngroups)
+  erify::check_bool(fix_parameter)
 
   if (is.null(df)) by_treatment = TRUE
+  if (!is.null(df)) dt <- data.table::setDT(data.table::copy(df))
 
   if (by_treatment) {
+    # create treatment_mapping, treatment_label, ngroups, and alloc
     if (!is.null(df)) {
-      if (!("treatment_description" %in% names(df))) {
-        df <- df %>% dplyr::mutate(
-          treatment_description = paste0("Treatment ", .data$treatment))
+      if (!("treatment_description" %in% names(dt))) {
+        dt[, `:=`(treatment_description =
+                    paste("Treatment", get("treatment")))]
       }
 
-      treatment_mapping <- df %>%
-        dplyr::select(.data$treatment, .data$treatment_description) %>%
-        dplyr::arrange(.data$treatment) %>%
-        dplyr::group_by(.data$treatment) %>%
-        dplyr::slice(dplyr::n())
+      treatment_mapping <- dt[
+        , mget(c("treatment", "treatment_description"))][
+          , .SD[.N], by = "treatment"]
 
       ngroups = nrow(treatment_mapping)
       treatment_label = treatment_mapping$treatment_description
     } else if (!is.null(treatment_label)) {
-      treatment_mapping <- dplyr::tibble(
+      treatment_mapping <- data.table(
         treatment = 1:ngroups, treatment_description = treatment_label)
     } else {
-      treatment_mapping <- dplyr::tibble(
+      treatment_mapping <- data.table(
         treatment = 1:ngroups,
-        treatment_description = paste0("Treatment ", .data$treatment))
-
+        treatment_description = paste("Treatment", 1:ngroups))
       treatment_label = treatment_mapping$treatment_description
     }
 
@@ -194,30 +197,27 @@ predictEnrollment <- function(df = NULL, target_n, enroll_fit, lags = 30,
   }
 
 
+  ### obtain trialsdt, cutoffdt, n0, t0, and sort df by randdt
   if (!is.null(df)) {
-    df <- dplyr::as_tibble(df)
-    names(df) <- tolower(names(df))
-    df$trialsdt <- as.Date(df$trialsdt)
-    df$randdt <- as.Date(df$randdt)
-    df$cutoffdt <- as.Date(df$cutoffdt)
+    dt$trialsdt <- as.Date(dt$trialsdt)
+    dt$randdt <- as.Date(dt$randdt)
+    dt$cutoffdt <- as.Date(dt$cutoffdt)
 
-    trialsdt = df$trialsdt[1]
-    cutoffdt = df$cutoffdt[1]
-    n0 = nrow(df)
+    trialsdt = dt[1, get("trialsdt")]
+    cutoffdt = dt[1, get("cutoffdt")]
+    n0 = nrow(dt)
     t0 = as.numeric(cutoffdt - trialsdt + 1)
 
-    if (any(df$randdt < trialsdt)) {
+    if (dt[, any(get("randdt") < get("trialsdt"))]) {
       stop("randdt must be greater than or equal to trialsdt")
     }
 
-    if (any(df$randdt > cutoffdt)) {
+    if (dt[, any(get("randdt") > get("cutoffdt"))]) {
       stop("randdt must be less than or equal to cutoffdt")
     }
 
-    df <- df %>%
-      dplyr::arrange(.data$randdt) %>%
-      dplyr::mutate(t = as.numeric(.data$randdt - trialsdt + 1),
-                    n = dplyr::row_number())
+    dt[order(get("randdt")), `:=`(
+      t = as.numeric(get("randdt") - get("trialsdt") + 1), n = .I)]
   } else {
     n0 = 0
     t0 = 1
@@ -226,7 +226,10 @@ predictEnrollment <- function(df = NULL, target_n, enroll_fit, lags = 30,
 
   erify::check_n(n1)
 
+  trtcols = c("treatment", "treatment_description")
 
+
+  ### simulate enrollment dates for the enrollment model
   if (tolower(enroll_fit$model) == "poisson") {
     if (!fix_parameter) {
       # draw parameter from posterior distribution
@@ -240,14 +243,12 @@ predictEnrollment <- function(df = NULL, target_n, enroll_fit, lags = 30,
     # draw arrival time for new subjects
     newEnrollment_po <- function(t0, n1, theta, nreps) {
       lambda = exp(theta)
-      df = dplyr::as_tibble(matrix(
-        nrow = nreps*n1, ncol = 2,
-        dimnames = list(NULL, c("draw", "arrivalTime"))))
+      df = data.table::setDT(list(draw = numeric(nreps*n1)))
+
       for (i in 1:nreps) {
         index = (i-1)*n1 + (1:n1)
-        df[index, "draw"] = i
         gapTime = rexp(n1, lambda[i])
-        df[index, "arrivalTime"] = cumsum(gapTime) + t0
+        df[index, `:=`(draw = i, arrivalTime = cumsum(gapTime) + t0)]
       }
 
       df
@@ -279,12 +280,10 @@ predictEnrollment <- function(df = NULL, target_n, enroll_fit, lags = 30,
 
     # draw arrival time for new subjects
     newEnrollment_td <- function(t0, n1, theta, nreps) {
-      df = dplyr::as_tibble(matrix(
-        nrow = nreps*n1, ncol = 2,
-        dimnames = list(NULL, c("draw", "arrivalTime"))))
+      df = data.table::setDT(list(draw = numeric(nreps*n1)))
+
       for (i in 1:nreps) {
         index = (i-1)*n1 + (1:n1)
-        df[index, "draw"] = i
         gapmuTime = rexp(n1)
         muTime = cumsum(gapmuTime) + fmu_td(t0, theta[i,])
 
@@ -300,8 +299,8 @@ predictEnrollment <- function(df = NULL, target_n, enroll_fit, lags = 30,
         interval = cbind(t0, tmax)
 
         # draw arrival time
-        df[index, "arrivalTime"] = rstpm2::vuniroot(
-          fenroll, interval, theta = theta[i,], muTime)$root
+        df[index, `:=`(draw = i, arrivalTime = rstpm2::vuniroot(
+          fenroll, interval, theta = theta[i,], muTime)$root)]
       }
 
       df
@@ -324,25 +323,23 @@ predictEnrollment <- function(df = NULL, target_n, enroll_fit, lags = 30,
     }
 
     newEnrollment_bs <- function(t0, n1, theta, x, lags, nreps) {
+      df = data.table::setDT(list(draw = numeric(nreps*n1)))
+
       lambda = exp(x %*% t(theta))
       # moving average for enrollment rate after t0
       t0x = nrow(lambda)  # to account for enrollment pause
       lambdaT = colMeans(lambda[(t0x - lags):t0x,])
 
-      df = dplyr::as_tibble(matrix(
-        nrow = nreps*n1, ncol = 2,
-        dimnames = list(NULL, c("draw", "arrivalTime"))))
       for (i in 1:nreps) {
         index = (i-1)*n1 + (1:n1)
-        df[index, "draw"] = i
         gapTime = rexp(n1, lambdaT[i])
-        df[index, "arrivalTime"] = cumsum(gapTime) + t0
+        df[index, `:=`(draw = i, arrivalTime = cumsum(gapTime) + t0)]
       }
 
       df
     }
 
-    newSubjects <- newEnrollment_bs(t0, n1, theta, x = enroll_fit$x,
+    newSubjects <- newEnrollment_bs(t0, n1, theta, enroll_fit$x,
                                     lags, nreps)
   } else if (tolower(enroll_fit$model) == "piecewise poisson") {
     # draw parameter from posterior distribution
@@ -363,28 +360,30 @@ predictEnrollment <- function(df = NULL, target_n, enroll_fit, lags = 30,
       }
     }
 
-
     u = enroll_fit$accrualTime
 
     # mu(t[j]) - mu(t[j-1]) is standard exponential distribution, t[0]=t0
     newEnrollment_pw <- function(t0, n1, theta, u, nreps) {
-      df = dplyr::as_tibble(matrix(
-        nrow = nreps*n1, ncol = 2,
-        dimnames = list(NULL, c("draw", "arrivalTime"))))
+      df = data.table::setDT(list(draw = numeric(nreps*n1)))
+
       J = length(u)
       j0 = findInterval(t0, u)
+
       for (i in 1:nreps) {
         index = (i-1)*n1 + (1:n1)
-        df[index, "draw"] = i
+
         a = exp(theta[i,]) # enrollment rate in each interval
         if (J>1) {
           psum = c(0, cumsum(a[1:(J-1)] * diff(u)))
         } else {
           psum = 0
         }
+
         rhs =  psum[j0] + a[j0]*(t0 - u[j0]) + cumsum(rexp(n1))
         j1 = findInterval(rhs, psum)
-        df[index, "arrivalTime"] = u[j1] + (rhs - psum[j1])/a[j1]
+
+        df[index, `:=`(draw = i,
+                       arrivalTime = u[j1] + (rhs - psum[j1])/a[j1])]
       }
 
       df
@@ -394,12 +393,12 @@ predictEnrollment <- function(df = NULL, target_n, enroll_fit, lags = 30,
   }
 
   # assign usubjid for new subjects
-  newSubjects$usubjid <- rep(paste0("Z-", 100000 + (1:n1)), nreps)
+  newSubjects[, `:=`(usubjid = rep(paste0("Z-", 100000 + (1:n1)), nreps))]
 
   if (t0 == 1) { # design stage
-    newSubjects$arrivalTime <- pmax(round(newSubjects$arrivalTime), 1)
+    newSubjects[, `:=`(arrivalTime = pmax(round(get("arrivalTime")), 1))]
   } else { # analysis stage
-    newSubjects$arrivalTime <- pmax(round(newSubjects$arrivalTime), t0+1)
+    newSubjects[, `:=`(arrivalTime = pmax(round(get("arrivalTime")), t0+1))]
   }
 
 
@@ -408,39 +407,38 @@ predictEnrollment <- function(df = NULL, target_n, enroll_fit, lags = 30,
     blocksize = sum(alloc)
     nblocks = ceiling(n1/blocksize)
     m = nblocks*blocksize
-    treats = rep(1:ngroups, alloc)
+    trts = rep(1:ngroups, alloc)
     index = rep(1:n1, nreps) + rep((0:(nreps-1))*m, each=n1)
-    newSubjects$treatment = c(replicate(nreps*nblocks, sample(treats)))[index]
+    newSubjects$treatment = c(replicate(nreps*nblocks, sample(trts)))[index]
 
-    # summary of observed data by treatment
+    # summarize number of enrolled subjects by treatment
     if (!is.null(df)) {
-      newSubjects <- newSubjects %>%
-        dplyr::left_join(treatment_mapping, by = "treatment")
+      newSubjects <- merge(newSubjects, treatment_mapping,
+                           by = "treatment", all.x = TRUE)
 
       # add overall treatment
-      df2 <- df %>%
-        dplyr::bind_rows(df %>% dplyr::mutate(
-          treatment = 9999, treatment_description = "Overall"))
+      df2 <- data.table::rbindlist(list(dt, data.table::copy(dt)[, `:=`(
+        treatment = 9999, treatment_description = "Overall")]),
+        use.names = TRUE)
 
-      sum_by_trt <- df2 %>%
-        dplyr::group_by(.data$treatment, .data$treatment_description) %>%
-        dplyr::summarise(n0 = dplyr::n(), .groups = "drop")
+      sum_by_trt <- df2[, list(n0 = .N),
+                        by = c("treatment", "treatment_description")]
     } else if (!is.null(treatment_label)) {
-        newSubjects <- newSubjects %>%
-          dplyr::left_join(treatment_mapping, by = "treatment")
+      newSubjects <- merge(newSubjects, treatment_mapping,
+                           by = "treatment", all.x = TRUE)
 
-        sum_by_trt <- dplyr::tibble(
-          treatment = c(1:ngroups, 9999),
-          treatment_description = c(treatment_label, "Overall"),
-          n0 = 0)
-      } else {
-        newSubjects <- newSubjects %>% dplyr::mutate(
-          treatment_description = paste0("Treatment ", .data$treatment))
+      sum_by_trt <- data.table(
+        treatment = c(1:ngroups, 9999),
+        treatment_description = c(treatment_label, "Overall"),
+        n0 = 0)
+    } else {
+      newSubjects[, `:=`(treatment_description =
+                           paste("Treatment", get("treatment")))]
 
-        sum_by_trt <- dplyr::tibble(treatment = c(1:ngroups, 9999)) %>%
-          dplyr::mutate(treatment_description = c(
-            paste0("Treatment ", 1:ngroups), "Overall"),
-            n0 = 0)
+      sum_by_trt <- data.table(
+        treatment = c(1:ngroups, 9999),
+        treatment_description = c(paste("Treatment", 1:ngroups), "Overall"),
+        n0 = 0)
     }
   }
 
@@ -450,9 +448,7 @@ predictEnrollment <- function(df = NULL, target_n, enroll_fit, lags = 30,
   pupper = 1 - plower
 
   # find the arrivalTime of the last subject for each simulated data set
-  new1 <- newSubjects %>%
-    dplyr::group_by(.data$draw) %>%
-    dplyr::slice(dplyr::n())
+  new1 <- newSubjects[, .SD[.N], by = "draw"]
 
   pred_day <- ceiling(quantile(new1$arrivalTime, c(0.5, plower, pupper)))
 
@@ -465,63 +461,62 @@ predictEnrollment <- function(df = NULL, target_n, enroll_fit, lags = 30,
   if (!is.null(df)) {
     pred_date <- as.Date(pred_day - 1, origin = trialsdt)
 
-    str1 <- paste0("Time from cutoff until ", target_n, " subjects: ",
-                   pred_date[1] - cutoffdt + 1, " days")
-    str2 <- paste0("Median prediction date: ", pred_date[1])
+    str1 <- paste("Time from cutoff until", target_n, "subjects:",
+                  pred_date[1] - cutoffdt + 1, "days")
+    str2 <- paste("Median prediction date:", pred_date[1])
     str3 <- paste0("Prediction interval: ", pred_date[2], ", ", pred_date[3])
-    s1 <- paste0(str1, "\n", str2, "\n", str3, "\n")
+    s1 <- paste(str1, "\n", str2, "\n", str3, "\n")
   } else {
-    str1 <- paste0("Time from trial start until ", target_n, " subjects")
-    str2 <- paste0("Median prediction day: ", pred_day[1])
+    str1 <- paste("Time from trial start until", target_n, "subjects")
+    str2 <- paste("Median prediction day:", pred_day[1])
     str3 <- paste0("Prediction interval: ", pred_day[2], ", ", pred_day[3])
-    s1 <- paste0(str1, "\n", str2, "\n", str3, "\n")
+    s1 <- paste(str1, "\n", str2, "\n", str3, "\n")
   }
 
 
+  # prediction plot
   if (!by_treatment) {
     # predicted number of subjects enrolled after data cut
-    dfb1 <- dplyr::tibble(t = t) %>%
-      dplyr::cross_join(newSubjects) %>%
-      dplyr::group_by(.data$t, .data$draw) %>%
-      dplyr::summarise(nenrolled = sum(.data$arrivalTime <= .data$t) + n0,
-                       .groups = "drop_last") %>%
-      dplyr::summarise(n = quantile(.data$nenrolled, probs = 0.5),
-                       pilevel = pilevel,
-                       lower = quantile(.data$nenrolled, probs = plower),
-                       upper = quantile(.data$nenrolled, probs = pupper),
-                       mean = mean(.data$nenrolled),
-                       var = var(.data$nenrolled)) %>%
-      dplyr::ungroup()
+    dfb1 <- merge(
+      data.table(t = t, dummy = 1),
+      data.table::copy(newSubjects)[, `:=`(dummy = 1)],
+      by = "dummy", allow.cartesian = TRUE)[
+        , list(nenrolled = sum(get("arrivalTime") <= get("t")) + n0),
+        by = c("t", "draw")][
+          , list(n = quantile(get("nenrolled"), probs = 0.5),
+                 pilevel = pilevel,
+                 lower = quantile(get("nenrolled"), probs = plower),
+                 upper = quantile(get("nenrolled"), probs = pupper),
+                 mean = mean(get("nenrolled")),
+                 var = var(get("nenrolled"))),
+          by = "t"]
 
     if (!is.null(df)) {
       # day 1
-      df0 <- dplyr::tibble(t = 1, n = 0, pilevel = pilevel,
-                           lower = NA, upper = NA, mean = 0, var = 0)
+      df0 <- data.table(t = 1, n = 0, pilevel = pilevel,
+                        lower = NA_real_, upper = NA_real_,
+                        mean = 0, var = 0)
 
       # arrival time for subjects already enrolled before data cut
-      dfa1 <- df %>%
-        dplyr::mutate(pilevel = pilevel, lower = NA, upper = NA,
-                      mean = .data$n, var = 0) %>%
-        dplyr::bind_rows(df0) %>%
-        dplyr::bind_rows(dplyr::tibble(t = t0, n = n0, pilevel = pilevel,
-                                       lower = NA, upper = NA,
-                                       mean = n0, var= 0)) %>%
-        dplyr::select(.data$t, .data$n, .data$pilevel, .data$lower,
-                      .data$upper, .data$mean, .data$var) %>%
-        dplyr::group_by(.data$t) %>%
-        dplyr::slice(dplyr::n()) %>%
-        dplyr::ungroup()
+      dfa1 <- dt[, list(
+        t = get("t"), n = get("n"), pilevel = pilevel,
+        lower = NA_real_, upper = NA_real_, mean = get("n"), var = 0)]
 
+      dft0 <- data.table(t = t0, n = n0, pilevel = pilevel,
+                         lower = NA_real_, upper = NA_real_,
+                         mean = n0, var = 0)
+
+      dfa1 <- data.table::rbindlist(list(
+        df0, dfa1, dft0), use.names = TRUE)[, .SD[.N], by = "t"]
 
       # concatenate subjects enrolled before and after data cut
-      dfs <- dfa1 %>%
-        dplyr::bind_rows(dfb1) %>%
-        dplyr::mutate(date = as.Date(.data$t - 1, origin = trialsdt)) %>%
-        dplyr::arrange(.data$t)
+      dfs <- data.table::rbindlist(list(dfa1, dfb1), use.names = TRUE)[
+        order(get("t")), `:=`(
+          date = as.Date(get("t") - 1, origin = get("trialsdt")))]
 
       # separate data into observed and predicted
-      dfa <- dfs %>% dplyr::filter(is.na(.data$lower))
-      dfb <- dfs %>% dplyr::filter(!is.na(.data$lower))
+      dfa <- dfs[is.na(get("lower"))]
+      dfb <- dfs[!is.na(get("lower"))]
 
       # plot the enrollment data with date as x-axis
       g1 <- plotly::plot_ly() %>%
@@ -562,81 +557,73 @@ predictEnrollment <- function(df = NULL, target_n, enroll_fit, lags = 30,
           xaxis = list(title = "Days since trial start", zeroline = FALSE),
           yaxis = list(title = "Subjects", zeroline = FALSE))
     }
-
   } else { # by treatment
     # add overall treatment
-    newSubjects2 <- newSubjects %>%
-      dplyr::bind_rows(newSubjects %>% dplyr::mutate(
-        treatment = 9999, treatment_description = "Overall"))
+    newSubjects2 <- data.table::rbindlist(list(
+      newSubjects, data.table::copy(newSubjects)[
+        , `:=`(treatment = 9999, treatment_description = "Overall")]),
+      use.names = TRUE)
 
     # predicted number of subjects enrolled by treatment after cutoff
-    dfb1 <- dplyr::tibble(t = t) %>%
-      dplyr::cross_join(newSubjects2) %>%
-      dplyr::group_by(.data$treatment, .data$treatment_description,
-                      .data$t, .data$draw) %>%
-      dplyr::summarise(nenrolled = sum(.data$arrivalTime <= .data$t),
-                       .groups = "drop_last") %>%
-      dplyr::left_join(sum_by_trt,
-                       by = c("treatment", "treatment_description")) %>%
-      dplyr::mutate(nenrolled = .data$nenrolled + .data$n0) %>%
-      dplyr::summarise(n = quantile(.data$nenrolled, probs = 0.5),
-                       pilevel = pilevel,
-                       lower = quantile(.data$nenrolled, probs = plower),
-                       upper = quantile(.data$nenrolled, probs = pupper),
-                       mean = mean(.data$nenrolled),
-                       var = var(.data$nenrolled),
-                       .groups = "drop_last") %>%
-      dplyr::ungroup()
+    dfb1 <- merge(
+      data.table(t = t, dummy = 1),
+      data.table::copy(newSubjects2)[, `:=`(dummy = 1)],
+      by = "dummy", allow.cartesian = TRUE)[
+        , list(nenrolled = sum(get("arrivalTime") <= get("t"))),
+        by = c("treatment", "treatment_description", "t", "draw")]
+
+    dfb1 <- merge(dfb1, sum_by_trt, by = trtcols, all.x = TRUE)[
+      , `:=`(nenrolled = get("nenrolled") + get("n0"))][
+        , list(n = quantile(get("nenrolled"), probs = 0.5),
+               pilevel = pilevel,
+               lower = quantile(get("nenrolled"), probs = plower),
+               upper = quantile(get("nenrolled"), probs = pupper),
+               mean = mean(get("nenrolled")),
+               var = var(get("nenrolled"))),
+        by = c("treatment", "treatment_description", "t")]
 
     if (!is.null(df)) {
+
       # day 1
-      df0 <- sum_by_trt %>%
-        dplyr::select(.data$treatment, .data$treatment_description) %>%
-        dplyr::mutate(t = 1, n = 0, pilevel = pilevel, lower = NA,
-                      upper = NA, mean = 0, var = 0)
+      df0 <- sum_by_trt[, list(
+        treatment = get("treatment"),
+        treatment_description = get("treatment_description"),
+        t = 1, n = 0, pilevel = pilevel, lower = NA_real_,
+        upper = NA_real_, mean = 0, var = 0)]
 
       # arrival time for subjects already enrolled before data cut
-      dfa1 <- df2 %>%
-        dplyr::group_by(.data$treatment, .data$treatment_description) %>%
-        dplyr::arrange(.data$randdt) %>%
-        dplyr::mutate(t = as.numeric(.data$randdt - trialsdt + 1),
-                      n = dplyr::row_number()) %>%
-        dplyr::mutate(pilevel = pilevel, lower = NA, upper = NA,
-                      mean = .data$n, var = 0) %>%
-        dplyr::bind_rows(df0) %>%
-        dplyr::bind_rows(sum_by_trt %>%
-                           dplyr::mutate(t = t0, n = n0, pilevel = pilevel,
-                                         lower = NA, upper = NA,
-                                         mean = n0, var = 0)) %>%
-        dplyr::select(.data$treatment, .data$treatment_description,
-                      .data$t, .data$n, .data$pilevel, .data$lower,
-                      .data$upper, .data$mean, .data$var) %>%
-        dplyr::group_by(.data$treatment, .data$treatment_description,
-                        .data$t) %>%
-        dplyr::slice(dplyr::n()) %>%
-        dplyr::ungroup()
+      dfa1 <- df2[do.call("order", mget(c("treatment", "randdt")))][
+        , list(t = as.numeric(get("randdt") - get("trialsdt") + 1),
+               n = seq_len(.N), pilevel = pilevel, lower = NA_real_,
+               upper = NA_real_, mean = seq_len(.N), var = 0),
+        by = trtcols]
+
+      dft0 <- sum_by_trt[, list(
+        treatment = get("treatment"),
+        treatment_description = get("treatment_description"),
+        t = t0, n = n0, pilevel = pilevel, lower = NA_real_,
+        upper = NA_real_, mean = n0, var = 0)]
+
+      dfa1 <- data.table::rbindlist(list(
+        dfa1, df0, dft0), use.names = TRUE)[
+        , .SD[.N], by = c("treatment", "treatment_description", "t")]
 
       # concatenate subjects enrolled before and after data cut
-      dfs <- dfa1 %>%
-        dplyr::bind_rows(dfb1) %>%
-        dplyr::mutate(date = as.Date(.data$t - 1, origin = trialsdt)) %>%
-        dplyr::mutate(parameter = "Enrollment") %>%
-        dplyr::arrange(.data$treatment, .data$t)
+      dfs <- data.table::rbindlist(list(dfa1, dfb1), use.names = TRUE)[
+        do.call("order", mget(c("treatment", "t"))), `:=`(
+          date = as.Date(get("t") - 1, origin = get("trialsdt")))]
 
       # separate data into observed and predicted
-      dfa <- dfs %>% dplyr::filter(is.na(.data$lower))
-      dfb <- dfs %>% dplyr::filter(!is.na(.data$lower))
+      dfa <- dfs[is.na(get("lower"))]
+      dfb <- dfs[!is.na(get("lower"))]
 
-      g <- list()
+      g1 <- list()
       for (i in c(9999, 1:ngroups)) {
-        dfsi <- dfs %>%
-          dplyr::filter(.data$treatment == i)
-        dfbi <- dfb %>%
-          dplyr::filter(.data$treatment == i)
-        dfai <- dfa %>%
-          dplyr::filter(.data$treatment == i)
+        dfsi <- dfs[get("treatment") == i]
+        dfbi <- dfb[get("treatment") == i]
+        dfai <- dfa[get("treatment") == i]
 
-        g[[(i+1) %% 9999]] <- plotly::plot_ly() %>%
+        g1[[(i+1) %% 9999]] <- plotly::plot_ly() %>%
           plotly::add_lines(
             data = dfai, x = ~date, y = ~n,
             line = list(shape="hv", width=2),
@@ -664,7 +651,7 @@ predictEnrollment <- function(df = NULL, target_n, enroll_fit, lags = 30,
               showarrow = FALSE, xref='paper', yref='paper'))
 
         if (i == 9999) {
-          g[[1]] <- g[[1]] %>%
+          g1[[1]] <- g1[[1]] %>%
             plotly::layout(
               annotations = list(
                 x = cutoffdt, y = 0, text = 'cutoff', xanchor = "left",
@@ -673,12 +660,11 @@ predictEnrollment <- function(df = NULL, target_n, enroll_fit, lags = 30,
         }
       }
     } else { # prediction at design stage
-      g <- list()
+      g1 <- list()
       for (i in c(9999, 1:ngroups)) {
-        dfbi <- dfb1 %>%
-          dplyr::filter(.data$treatment == i)
+        dfbi <- dfb1[get("treatment") == i]
 
-        g[[(i+1) %% 9999]] <- dfbi %>%
+        g1[[(i+1) %% 9999]] <- dfbi %>%
           plotly::plot_ly(x = ~t) %>%
           plotly::add_lines(
             y = ~n, line = list(width=2),
@@ -698,8 +684,6 @@ predictEnrollment <- function(df = NULL, target_n, enroll_fit, lags = 30,
               showarrow = FALSE, xref='paper', yref='paper'))
       }
     }
-
-    g1 <- g
   }
 
 
@@ -720,5 +704,4 @@ predictEnrollment <- function(df = NULL, target_n, enroll_fit, lags = 30,
          enroll_pred_df = dfb1,
          enroll_pred_summary = s1, enroll_pred_plot = g1)
   }
-
 }

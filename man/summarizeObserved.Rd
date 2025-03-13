@@ -44,11 +44,13 @@ and time to dropout.
 }
 \examples{
 
-observed1 <- summarizeObserved(df = interimData1,
-                               to_predict = "enrollment and event")
+observed1 <- summarizeObserved(
+  df = interimData1,
+  to_predict = "enrollment and event")
 
-observed2 <- summarizeObserved(df = interimData2,
-                               to_predict = "event only")
+observed2 <- summarizeObserved(
+  df = interimData2,
+  to_predict = "event only")
 
 }
 \author{

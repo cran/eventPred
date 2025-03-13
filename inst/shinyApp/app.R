@@ -5,7 +5,8 @@ library(shinyjs, warn.conflicts = FALSE)
 library(shinybusy)
 library(readxl)
 library(writexl)
-library(dplyr, warn.conflicts = FALSE)
+library(data.table)
+library(DT)
 library(purrr)
 library(prompter)
 library(ggplot2)
@@ -16,7 +17,7 @@ library(eventPred)
 # conditional panels for treatment allocation
 f_treatment_allocation <- function(i) {
   conditionalPanel(
-    condition = paste0("input.k == ", i),
+    condition = paste("input.k ==", i),
 
     shinyMatrix::matrixInput(
       paste0("treatment_allocation_", i),
@@ -72,7 +73,8 @@ f_weibull_survival <- function(i) {
 
 f_llogis_survival <- function(i) {
   conditionalPanel(
-    condition = paste("input.event_prior == 'Log-logistic' && input.k ==", i),
+    condition = paste("input.event_prior == 'Log-logistic' &&
+                      input.k ==", i),
 
     shinyMatrix::matrixInput(
       paste0("llogis_survival_", i),
@@ -110,8 +112,8 @@ f_lnorm_survival <- function(i) {
 
 f_piecewise_exponential_survival <- function(i) {
   conditionalPanel(
-    condition = paste(
-      "input.event_prior == 'Piecewise exponential' && input.k ==", i),
+    condition = paste("input.event_prior == 'Piecewise exponential' &&
+                      input.k ==", i),
 
     shinyMatrix::matrixInput(
       paste0("piecewise_exponential_survival_", i),
@@ -135,8 +137,8 @@ f_piecewise_exponential_survival <- function(i) {
 
 f_exponential_dropout <- function(i) {
   conditionalPanel(
-    condition = paste("input.dropout_prior == 'Exponential' && input.k ==",
-                      i),
+    condition = paste("input.dropout_prior == 'Exponential' &&
+                      input.k ==", i),
 
     shinyMatrix::matrixInput(
       paste0("exponential_dropout_", i),
@@ -171,8 +173,8 @@ f_weibull_dropout <- function(i) {
 
 f_llogis_dropout <- function(i) {
   conditionalPanel(
-    condition = paste("input.dropout_prior == 'Log-logistic' && input.k ==",
-                      i),
+    condition = paste("input.dropout_prior == 'Log-logistic' &&
+                      input.k ==", i),
 
     shinyMatrix::matrixInput(
       paste0("llogis_dropout_", i),
@@ -191,7 +193,8 @@ f_llogis_dropout <- function(i) {
 
 f_lnorm_dropout <- function(i) {
   conditionalPanel(
-    condition = paste("input.dropout_prior == 'Log-normal' && input.k ==", i),
+    condition = paste("input.dropout_prior == 'Log-normal' &&
+                      input.k ==", i),
 
     shinyMatrix::matrixInput(
       paste0("lnorm_dropout_", i),
@@ -210,8 +213,8 @@ f_lnorm_dropout <- function(i) {
 
 f_piecewise_exponential_dropout <- function(i) {
   conditionalPanel(
-    condition = paste(
-      "input.dropout_prior == 'Piecewise exponential' && input.k ==", i),
+    condition = paste("input.dropout_prior == 'Piecewise exponential' &&
+                      input.k ==", i),
 
     shinyMatrix::matrixInput(
       paste0("piecewise_exponential_dropout_", i),
@@ -258,7 +261,7 @@ observedPanel <- tabPanel(
 
   conditionalPanel(
     condition = "input.stage != 'Design stage'",
-    dataTableOutput("input_df"))
+    DT::DTOutput("input_df"))
 )
 
 
@@ -439,7 +442,8 @@ eventPanel <- tabPanel(
                     "Log-normal",
                     "Piecewise exponential",
                     "Model averaging",
-                    "Spline"),
+                    "Spline",
+                    "Cox model"),
         selected = "Model averaging",
         inline = FALSE)
       ),
@@ -479,6 +483,18 @@ eventPanel <- tabPanel(
                  choices = c("hazard", "odds", "normal"),
                  selected = "hazard",
                  inline = TRUE)
+             ),
+
+             conditionalPanel(
+               condition = "input.event_model == 'Cox model'",
+
+               numericInput(
+                 "m_event",
+                 label = paste("How many event time intervals to",
+                               "extrapolate the hazard function",
+                               "beyond the last observed event time?"),
+                 value = 5,
+                 min = 1, max = 10, step = 1)
              )
       )
     ),
@@ -534,7 +550,8 @@ dropoutPanel <- tabPanel(
                     "Log-normal",
                     "Piecewise exponential",
                     "Model averaging",
-                    "Spline"),
+                    "Spline",
+                    "Cox model"),
         selected = "Exponential",
         inline = FALSE)
       ),
@@ -575,6 +592,18 @@ dropoutPanel <- tabPanel(
                  choices = c("hazard", "odds", "normal"),
                  selected = "hazard",
                  inline = TRUE)
+             ),
+
+             conditionalPanel(
+               condition = "input.dropout_model == 'Cox model'",
+
+               numericInput(
+                 "m_dropout",
+                 label = paste("How many dropout time intervals to",
+                               "extrapolate the hazard function",
+                               "beyond the last observed dropout time?"),
+                 value = 5,
+                 min = 1, max = 10, step = 1)
              )
       )
     ),
@@ -764,6 +793,34 @@ ui <- fluidPage(
       ),
 
 
+      fluidRow(
+        column(7,
+               conditionalPanel(
+                 condition = "input.to_predict == 'Enrollment and event' ||
+                 input.stage == 'Real-time after enrollment completion'",
+
+                 checkboxInput(
+                   "pred_at_t", label = "Predict event at given time?",
+                   value = FALSE)
+               )
+        ),
+
+        column(5,
+               conditionalPanel(
+                 condition = "(input.to_predict == 'Enrollment and event' ||
+                 input.stage == 'Real-time after enrollment completion') &&
+                 input.pred_at_t",
+
+                 numericInput(
+                   "target_t",
+                   label = "Target days after cutoff",
+                   value = 180,
+                   min = 1, max = 2000, step = 1)
+               )
+        )
+      ),
+
+
       conditionalPanel(
         condition = "input.to_predict == 'Enrollment and event' ||
         input.stage == 'Real-time after enrollment completion'",
@@ -921,6 +978,24 @@ server <- function(input, output, session) {
   })
 
 
+  target_t <- reactive({
+    req(input$target_t)
+    valid1 = (input$target_t > 0 && input$target_t == round(input$target_t))
+    shinyFeedback::feedbackWarning(
+      "target_t", !valid1,
+      "Target days must be a positive integer")
+
+    valid2 = (input$target_t <= input$nyears*365)
+    shinyFeedback::feedbackWarning(
+      "target_t", !valid2,
+      "Target days must be less than or equal to 365 x years after cutoff")
+
+    req(valid1 && valid2)
+
+    as.numeric(input$target_t)
+  })
+
+
   nyears <- reactive({
     req(input$nyears)
     valid = (input$nyears > 0)
@@ -1003,10 +1078,10 @@ server <- function(input, output, session) {
       if (!input$by_treatment && input$stage != "Design stage") {
         a = "Overall"
       } else if (input$stage != "Design stage" && !is.null(df())) {
-        treatment_mapping <- df() %>%
-          group_by(treatment, treatment_description) %>%
-          slice(n()) %>%
-          select(treatment, treatment_description)
+        treatment_mapping <- df()[
+          , .(treatment, treatment_description)][
+          , .SD[.N], by = "treatment"]
+
         a = treatment_mapping$treatment_description
       } else {
         a = rownames(input[[paste0("treatment_allocation_", k())]])
@@ -1024,17 +1099,20 @@ server <- function(input, output, session) {
         session, paste0("exponential_survival_", k()),
         value=matrix(exponential_survival(), ncol=k(),
                      dimnames = list(NULL, treatment_description())))
+
       updateMatrixInput(
         session, paste0("weibull_survival_", k()),
         value=matrix(weibull_survival(), nrow=2, ncol=k(),
                      dimnames = list(c("Shape", "Scale"),
                                      treatment_description())))
+
       updateMatrixInput(
         session, paste0("llogis_survival_", k()),
         value=matrix(llogis_survival(), nrow=2, ncol=k(),
                      dimnames = list(c("Location on log scale",
                                        "Scale on log scale"),
                                      treatment_description())))
+
       updateMatrixInput(
         session, paste0("lnorm_survival_", k()),
         value=matrix(lnorm_survival(), nrow=2, ncol=k(),
@@ -1055,17 +1133,20 @@ server <- function(input, output, session) {
         session, paste0("exponential_dropout_", k()),
         value=matrix(exponential_dropout(), ncol=k(),
                      dimnames = list(NULL, treatment_description())))
+
       updateMatrixInput(
         session, paste0("weibull_dropout_", k()),
         value=matrix(weibull_dropout(), nrow=2, ncol=k(),
                      dimnames = list(c("Shape", "Scale"),
                                      treatment_description())))
+
       updateMatrixInput(
         session, paste0("llogis_dropout_", k()),
         value=matrix(llogis_dropout(), nrow=2, ncol=k(),
                      dimnames = list(c("Location on log scale",
                                        "Scale on log scale"),
                                      treatment_description())))
+
       updateMatrixInput(
         session, paste0("lnorm_dropout_", k()),
         value=matrix(lnorm_dropout(), nrow=2, ncol=k(),
@@ -1321,6 +1402,17 @@ server <- function(input, output, session) {
   })
 
 
+  m_event <- reactive({
+    req(input$m_event)
+    valid = (input$m_event >= 1 && input$m_event == round(input$m_event))
+    shinyFeedback::feedbackWarning(
+      "m_event", !valid,
+      "Number of event time intervals must be a positive integer")
+    req(valid)
+    as.numeric(input$m_event)
+  })
+
+
   exponential_dropout <- reactive({
     req(k())
     param = input[[paste0("exponential_dropout_", k())]]
@@ -1451,6 +1543,18 @@ server <- function(input, output, session) {
   })
 
 
+  m_dropout <- reactive({
+    req(input$m_dropout)
+    valid = (input$m_dropout >= 1 &&
+               input$m_dropout == round(input$m_dropout))
+    shinyFeedback::feedbackWarning(
+      "m_dropout", !valid,
+      "Number of dropout time intervals must be a positive integer")
+    req(valid)
+    as.numeric(input$m_dropout)
+  })
+
+
   # input data set
   df <- reactive({
     # input$file1 will be NULL initially. After the user selects
@@ -1463,7 +1567,7 @@ server <- function(input, output, session) {
     if (is.null(inFile))
       return(NULL)
 
-    df <- readxl::read_excel(inFile$datapath)
+    df <- data.table::setDT(readxl::read_excel(inFile$datapath))
 
     if (to_predict() == "Enrollment only") {
       req_cols <- c('trialsdt', 'usubjid', 'randdt', 'cutoffdt')
@@ -1483,21 +1587,22 @@ server <- function(input, output, session) {
            paste("The following columns are missing from the input data:",
                  paste(req_cols[!(req_cols %in% cols)], collapse = ", "))))
 
-    if (any(is.na(df[, req_cols]))) {
+    if (any(is.na(df[, ..req_cols]))) {
       stop(paste("The following columns have missing values:",
                  paste(req_cols[sapply(df, function(x) any(is.na(x)))],
                        collapse = ", ")))
     }
 
     if ('treatment' %in% cols && !('treatment_description' %in% cols)) {
-      df <- df %>%
-        mutate(treatment_description = paste("Treatment", treatment))
+      df[, `:=`(treatment_description = paste("Treatment", treatment))]
+
     }
 
-    tibble(df) %>%
-      mutate(trialsdt = as.Date(trialsdt),
-             randdt = as.Date(randdt),
-             cutoffdt = as.Date(cutoffdt))
+    df$trialsdt <- as.Date(df$trialsdt)
+    df$randdt <- as.Date(df$randdt)
+    df$cutoffdt <- as.Date(df$cutoffdt)
+
+    df
   })
 
 
@@ -1521,8 +1626,8 @@ server <- function(input, output, session) {
   event_fit <- reactive({
     if (!is.null(df()))
       fitEvent(df(), input$event_model, piecewiseSurvivalTime(),
-               spline_k(), input$spline_scale, showplot = FALSE,
-               input$by_treatment)
+               spline_k(), input$spline_scale, m_event(),
+               showplot = FALSE, input$by_treatment)
   })
 
 
@@ -1535,9 +1640,7 @@ server <- function(input, output, session) {
                paste("The number of dropouts must be",
                      "positive to fit a dropout model.")))
       } else {
-        sum_by_trt <- df() %>%
-          group_by(treatment) %>%
-          summarise(c0 = sum(dropout))
+        sum_by_trt <- df()[, .(c0 = sum(dropout)), by = "treatment"]
 
         shiny::validate(
           need(all(sum_by_trt$c0 > 0),
@@ -1547,7 +1650,7 @@ server <- function(input, output, session) {
 
       fitDropout(df(), input$dropout_model, piecewiseDropoutTime(),
                  spline_k_dropout(), input$spline_scale_dropout,
-                 showplot = FALSE, input$by_treatment)
+                 m_dropout(), showplot = FALSE, input$by_treatment)
     }
   })
 
@@ -1558,7 +1661,8 @@ server <- function(input, output, session) {
 
     if (to_predict() != "Enrollment only") {
       shiny::validate(
-        need(showEnrollment() || showEvent() || showDropout() || showOngoing(),
+        need(showEnrollment() || showEvent() || showDropout() ||
+               showOngoing(),
              "Need at least one parameter to show on prediction plot"))
     }
 
@@ -1691,6 +1795,7 @@ server <- function(input, output, session) {
           dropout_prior = dropout_prior,
           pilevel = pilevel(),
           nyears = nyears(),
+          target_t = target_t(),
           nreps = nreps(),
           showEnrollment = showEnrollment(),
           showEvent = showEvent(),
@@ -1739,11 +1844,25 @@ server <- function(input, output, session) {
           need(target_d() > observed()$d0,
                "Target number of events has been reached."))
 
+        if (input$event_model == "Cox model") {
+          shiny::validate(
+            need(observed()$d0 >= m_event(), paste(
+              "The number of event time intervals must be less than",
+              "or equal to the observed number of events.")))
+        }
+
         if (input$dropout_model != "None") {
           shiny::validate(
             need(observed()$c0 > 0, paste(
               "The number of dropouts must be positive",
               "to fit a dropout model.")))
+
+          if (input$dropout_model == "Cox model") {
+            shiny::validate(
+              need(observed()$c0 >= m_dropout(), paste(
+                "The number of dropout time intervals must be less than",
+                "or equal to the observed number of dropouts.")))
+          }
         }
 
         getPrediction(
@@ -1759,12 +1878,15 @@ server <- function(input, output, session) {
           piecewiseSurvivalTime = piecewiseSurvivalTime(),
           k = spline_k(),
           scale = input$spline_scale,
+          m = m_event(),
           dropout_model = input$dropout_model,
           piecewiseDropoutTime = piecewiseDropoutTime(),
           k_dropout = spline_k_dropout(),
           scale_dropout = input$spline_scale_dropout,
+          m_dropout = m_dropout(),
           pilevel = pilevel(),
           nyears = nyears(),
+          target_t = target_t(),
           nreps = nreps(),
           showEnrollment = showEnrollment(),
           showEvent = showEvent(),
@@ -1780,10 +1902,25 @@ server <- function(input, output, session) {
           need(target_d() > observed()$d0,
                "Target number of events has been reached."))
 
+        if (input$event_model == "Cox model") {
+          shiny::validate(
+            need(observed()$d0 >= m_event(), paste(
+              "The number of event time intervals must be less than",
+              "or equal to the observed number of events.")))
+        }
+
         if (input$dropout_model != "None") {
-          shiny::validate(need(observed()$c0 > 0, paste(
-            "The number of dropouts must be positive",
-            "to fit a dropout model.")))
+          shiny::validate(
+            need(observed()$c0 > 0, paste(
+              "The number of dropouts must be positive",
+              "to fit a dropout model.")))
+
+          if (input$dropout_model == "Cox model") {
+            shiny::validate(
+              need(observed()$c0 >= m_dropout(), paste(
+                "The number of dropout time intervals must be less than",
+                "or equal to the observed number of dropouts.")))
+          }
         }
 
         getPrediction(
@@ -1794,12 +1931,15 @@ server <- function(input, output, session) {
           piecewiseSurvivalTime = piecewiseSurvivalTime(),
           k = spline_k(),
           scale = input$spline_scale,
+          m = m_event(),
           dropout_model = input$dropout_model,
           piecewiseDropoutTime = piecewiseDropoutTime(),
           k_dropout = spline_k_dropout(),
           scale_dropout = input$spline_scale_dropout,
+          m_dropout = m_dropout(),
           pilevel = pilevel(),
           nyears = nyears(),
+          target_t = target_t(),
           nreps = nreps(),
           showEnrollment = showEnrollment(),
           showEvent = showEvent(),
@@ -1830,20 +1970,22 @@ server <- function(input, output, session) {
       if (input$by_treatment && k() > 1) {
         if (to_predict() == "Enrollment and event" ||
             to_predict() == "Event only") {
-          sum_by_trt <- df() %>%
-            bind_rows(df() %>% mutate(
-              treatment = 9999, treatment_description = "Overall")) %>%
-            group_by(treatment, treatment_description) %>%
-            summarise(n0 = n(),
-                      d0 = sum(event),
-                      c0 = sum(dropout),
-                      r0 = sum(!(event | dropout)),
-                      rp = sum((time < as.numeric(
-                        cutoffdt - randdt + 1)) & !(event | dropout)),
-                      .groups = "drop")
+
+          sum_by_trt <- data.table::rbindlist(list(
+            df(), data.table::copy(df())[, `:=`(
+              treatment = 9999, treatment_description = "Overall")]),
+            use.names = TRUE)[, .(
+              n0 = .N,
+              d0 = sum(event),
+              c0 = sum(dropout),
+              r0 = sum(!(event | dropout)),
+              rp = sum((time < as.numeric(cutoffdt - randdt + 1)) &
+                         !event & !dropout)),
+              by = c("treatment", "treatment_description")]
+
 
           if (any(sum_by_trt$rp) > 0) {
-            table <- t(sum_by_trt %>% select(n0, d0, c0, r0, rp))
+            table <- t(sum_by_trt[, .(n0, d0, c0, r0, rp)])
             colnames(table) <- sum_by_trt$treatment_description
             rownames(table) <- c("Current number of subjects",
                                  "Current number of events",
@@ -1851,7 +1993,7 @@ server <- function(input, output, session) {
                                  "Number of ongoing subjects",
                                  "  With ongoing date before cutoff")
           } else {
-            table <- t(sum_by_trt %>% select(n0, d0, c0, r0))
+            table <- t(sum_by_trt[, .(n0, d0, c0, r0)])
             colnames(table) <- sum_by_trt$treatment_description
             rownames(table) <- c("Current number of subjects",
                                  "Current number of events",
@@ -1860,27 +2002,27 @@ server <- function(input, output, session) {
           }
 
         } else {
-          sum_by_trt <- df() %>%
-            bind_rows(df() %>% mutate(
-              treatment = 9999, treatment_description = "Overall")) %>%
-            group_by(treatment, treatment_description) %>%
-            summarise(n0 = n(), .groups = "drop")
+          sum_by_trt <- data.table::rbindlist(list(
+            df(), data.table::copy(df())[, `:=`(
+              treatment = 9999, treatment_description = "Overall")]),
+            use.names = TRUE)[, .(n0 = .N), by = c(
+              "treatment", "treatment_description")]
 
-          table <- t(sum_by_trt %>% select(n0))
+          table <- t(sum_by_trt[, .(n0)])
           colnames(table) <- sum_by_trt$treatment_description
           rownames(table) <- c("Current number of subjects")
         }
       } else {
         if (to_predict() == "Enrollment and event" ||
             to_predict() == "Event only") {
-          sum_overall <- tibble(n0 = observed()$n0,
-                                d0 = observed()$d0,
-                                c0 = observed()$c0,
-                                r0 = observed()$r0,
-                                rp = observed()$rp)
+          sum_overall <- data.table(n0 = observed()$n0,
+                                    d0 = observed()$d0,
+                                    c0 = observed()$c0,
+                                    r0 = observed()$r0,
+                                    rp = observed()$rp)
 
           if (sum_overall$rp > 0) {
-            table <- t(sum_overall %>% select(n0, d0, c0, r0, rp))
+            table <- t(sum_overall[, .(n0, d0, c0, r0, rp)])
             colnames(table) <- "Overall"
             rownames(table) <- c("Current number of subjects",
                                  "Current number of events",
@@ -1888,7 +2030,7 @@ server <- function(input, output, session) {
                                  "Number of ongoing subjects",
                                  "  With ongoing date before cutoff")
           } else {
-            table <- t(sum_overall %>% select(n0, d0, c0, r0))
+            table <- t(sum_overall[, .(n0, d0, c0, r0)])
             colnames(table) <- "Overall"
             rownames(table) <- c("Current number of subjects",
                                  "Current number of events",
@@ -1896,7 +2038,7 @@ server <- function(input, output, session) {
                                  "Number of ongoing subjects")
           }
         } else {
-          table <- t(tibble(n0 = observed()$n0))
+          table <- t(data.table(n0 = observed()$n0))
           colnames(table) <- "Overall"
           rownames(table) <- c("Current number of subjects")
         }
@@ -1931,7 +2073,7 @@ server <- function(input, output, session) {
   })
 
 
-  output$input_df <- renderDataTable(
+  output$input_df <- DT::renderDT(
     df(), options = list(pageLength = 10)
   )
 
@@ -2144,14 +2286,89 @@ server <- function(input, output, session) {
   })
 
 
+
+  # event predication at given date
+  output$event_pred_at_t <- renderText({
+    if ((to_predict() == 'Enrollment and event' ||
+        to_predict() == 'Event only') && input$pred_at_t) {
+
+      req(pred()$event_pred)
+      req(pred()$stage == input$stage && pred()$to_predict == to_predict())
+
+      if (input$stage != 'Design stage') {
+        shiny::validate(
+          need(!is.null(df()),
+               "Please upload data for real-time prediction."))
+
+        shiny::validate(
+          need(target_d() > observed()$d0,
+               "Target number of events has been reached."))
+
+        if (input$dropout_model != "None") {
+          shiny::validate(
+            need(observed()$c0 > 0, paste(
+              "The number of dropouts must be positive",
+              "to fit a dropout model.")))
+        }
+
+        if (!is.null(pred()$event_pred$pred_at_t)) {
+          dx <- pred()$event_pred$pred_at_t
+          str1 <- paste0("Predicted number of events by ", dx$date)
+          str2 <- paste0("Median prediction: ", round(dx$n))
+          str3 <- paste0("Prediction interval: ", round(dx$lower),
+                         ", ", round(dx$upper))
+          text3 <- paste(paste('<b>', str1, '</b>'), str2, str3, sep='<br/>')
+        } else {
+          text3 <- NULL
+        }
+      } else {
+        if (!is.null(pred()$event_pred$pred_at_t)) {
+          str1 <- paste0("Predicted number of events by day ", dx$t)
+          str2 <- paste0("Median prediction: ", round(dx$n))
+          str3 <- paste0("Prediction interval: ", round(dx$lower),
+                         ", ", round(dx$upper))
+          text3 <- paste(paste('<b>', str1, '</b>'), str2, str3, sep='<br/>')
+        } else {
+          text3 <- NULL
+        }
+      }
+    } else {
+      text3 <- NULL
+    }
+
+    if (!is.null(text3)) text3
+  })
+
+
   output$pred_date <- renderUI({
     if (to_predict() == 'Enrollment only') {
       htmlOutput("enroll_pred_date")
     } else if (to_predict() == 'Event only') {
-      htmlOutput("event_pred_date")
+      if (input$pred_at_t) {
+        tagList(
+          htmlOutput("event_pred_date"),
+          tags$br(),
+          htmlOutput("event_pred_at_t")
+        )
+      } else {
+        htmlOutput("event_pred_date")
+      }
     } else {
-      fluidRow(column(6, htmlOutput("enroll_pred_date")),
-               column(6, htmlOutput("event_pred_date")))
+      if (input$pred_at_t) {
+        tagList(
+          htmlOutput("enroll_pred_date"),
+          tags$br(),
+          htmlOutput("event_pred_date"),
+          tags$br(),
+          htmlOutput("event_pred_at_t")
+        )
+      } else {
+        tagList(
+          htmlOutput("enroll_pred_date"),
+          tags$br(),
+          htmlOutput("event_pred_date")
+        )
+      }
     }
   })
 
@@ -2214,33 +2431,33 @@ server <- function(input, output, session) {
       }
 
 
-      dfs <- tibble()
+      dt_list <- list()
       if (showEnrollment())
-        dfs <- dfs %>% bind_rows(pred()$event_pred$enroll_pred_df)
-
+        dt_list <- c(dt_list, list(pred()$event_pred$enroll_pred_df))
       if (showEvent())
-        dfs <- dfs %>% bind_rows(pred()$event_pred$event_pred_df)
-
+        dt_list <- c(dt_list, list(pred()$event_pred$event_pred_df))
       if (showDropout())
-        dfs <- dfs %>% bind_rows(pred()$event_pred$dropout_pred_df)
-
+        dt_list <- c(dt_list, list(pred()$event_pred$dropout_pred_df))
       if (showOngoing())
-        dfs <- dfs %>% bind_rows(pred()$event_pred$ongoing_pred_df)
+        dt_list <- c(dt_list, list(pred()$event_pred$ongoing_pred_df))
+
+      dfs <- data.table::rbindlist(dt_list, use.names = TRUE)
+
 
       if ((!input$by_treatment || k() == 1) &&
           !("treatment" %in% names(dfs))) { # overall
         if (input$stage != 'Design stage') {
-          dfa <- dfs %>% filter(is.na(lower))
-          dfb <- dfs %>% filter(!is.na(lower))
+          dfa <- dfs[is.na(lower)]
+          dfb <- dfs[!is.na(lower)]
 
-          dfa_enrollment <- dfa %>% filter(parameter == "Enrollment")
-          dfb_enrollment <- dfb %>% filter(parameter == "Enrollment")
-          dfa_event <- dfa %>% filter(parameter == "Event")
-          dfb_event <- dfb %>% filter(parameter == "Event")
-          dfa_dropout <- dfa %>% filter(parameter == "Dropout")
-          dfb_dropout <- dfb %>% filter(parameter == "Dropout")
-          dfa_ongoing <- dfa %>% filter(parameter == "Ongoing")
-          dfb_ongoing <- dfb %>% filter(parameter == "Ongoing")
+          dfa_enrollment <- dfa[parameter == "Enrollment"]
+          dfb_enrollment <- dfb[parameter == "Enrollment"]
+          dfa_event <- dfa[parameter == "Event"]
+          dfb_event <- dfb[parameter == "Event"]
+          dfa_dropout <- dfa[parameter == "Dropout"]
+          dfb_dropout <- dfb[parameter == "Dropout"]
+          dfa_ongoing <- dfa[parameter == "Ongoing"]
+          dfb_ongoing <- dfb[parameter == "Ongoing"]
 
           g <- plotly::plot_ly() %>%
             plotly::add_lines(
@@ -2298,9 +2515,9 @@ server <- function(input, output, session) {
               showlegend = FALSE) %>%
             plotly::layout(
               annotations = list(
-                x = observed()$cutoffdt, y = 0, text = 'cutoff',
-                xanchor = "left", yanchor = "bottom", font = list(size = 12),
-                showarrow = FALSE),
+                x = observed()$cutoffdt, y = 0, text = "cutoff",
+                xanchor = "left", yanchor = "bottom", textangle = -90,
+                font = list(size = 12), showarrow = FALSE),
               xaxis = list(title = "", zeroline = FALSE),
               yaxis = list(zeroline = FALSE))
 
@@ -2315,8 +2532,8 @@ server <- function(input, output, session) {
               plotly::layout(
                 annotations = list(
                   x = observed()$cutofftpdt, y = 0,
-                  text = 'prediction start',
-                  xanchor = "left", yanchor = "bottom",
+                  text = "prediction start",
+                  xanchor = "left", yanchor = "bottom", textangle = -90,
                   font = list(size=12), showarrow = FALSE))
           }
 
@@ -2334,10 +2551,10 @@ server <- function(input, output, session) {
                   showarrow = FALSE))
           }
         } else {  # Design stage
-          dfs_enrollment <- dfs %>% filter(parameter == "Enrollment")
-          dfs_event <- dfs %>% filter(parameter == "Event")
-          dfs_dropout <- dfs %>% filter(parameter == "Dropout")
-          dfs_ongoing <- dfs %>% filter(parameter == "Ongoing")
+          dfs_enrollment <- dfs[parameter == "Enrollment"]
+          dfs_event <- dfs[parameter == "Event"]
+          dfs_dropout <- dfs[parameter == "Dropout"]
+          dfs_ongoing <- dfs[parameter == "Ongoing"]
 
           g <- plotly::plot_ly() %>%
             plotly::add_lines(
@@ -2395,23 +2612,23 @@ server <- function(input, output, session) {
                   k() > 1) && ("treatment" %in% names(dfs)) &&
                  (length(table(dfs$treatment)) == k() + 1)) { # by treatment
         if (input$stage != 'Design stage') {
-          dfa <- dfs %>% filter(is.na(lower))
-          dfb <- dfs %>% filter(!is.na(lower))
+          dfa <- dfs[is.na(lower)]
+          dfb <- dfs[!is.na(lower)]
 
           g <- list()
           for (i in c(9999, 1:k())) {
-            dfsi <- dfs %>% filter(treatment == i)
-            dfbi <- dfb %>% filter(treatment == i)
-            dfai <- dfa %>% filter(treatment == i)
+            dfsi <- dfs[treatment == i]
+            dfbi <- dfb[treatment == i]
+            dfai <- dfa[treatment == i]
 
-            dfai_enrollment <- dfai %>% filter(parameter == "Enrollment")
-            dfbi_enrollment <- dfbi %>% filter(parameter == "Enrollment")
-            dfai_event <- dfai %>% filter(parameter == "Event")
-            dfbi_event <- dfbi %>% filter(parameter == "Event")
-            dfai_dropout <- dfai %>% filter(parameter == "Dropout")
-            dfbi_dropout <- dfbi %>% filter(parameter == "Dropout")
-            dfai_ongoing <- dfai %>% filter(parameter == "Ongoing")
-            dfbi_ongoing <- dfbi %>% filter(parameter == "Ongoing")
+            dfai_enrollment <- dfai[parameter == "Enrollment"]
+            dfbi_enrollment <- dfbi[parameter == "Enrollment"]
+            dfai_event <- dfai[parameter == "Event"]
+            dfbi_event <- dfbi[parameter == "Event"]
+            dfai_dropout <- dfai[parameter == "Dropout"]
+            dfbi_dropout <- dfbi[parameter == "Dropout"]
+            dfai_ongoing <- dfai[parameter == "Ongoing"]
+            dfbi_ongoing <- dfbi[parameter == "Ongoing"]
 
             g[[(i+1) %% 9999]] <- plotly::plot_ly() %>%
               plotly::add_lines(
@@ -2474,7 +2691,8 @@ server <- function(input, output, session) {
               plotly::layout(
                 annotations = list(
                   x = 0.5, y = 1,
-                  text = paste0("<b>", dfsi$treatment_description[1], "</b>"),
+                  text = paste0("<b>", dfsi$treatment_description[1],
+                                "</b>"),
                   xanchor = "center", yanchor = "bottom",
                   showarrow = FALSE, xref='paper', yref='paper'))
 
@@ -2494,8 +2712,8 @@ server <- function(input, output, session) {
               g[[1]] <- g[[1]] %>%
                 plotly::layout(
                   annotations = list(
-                    x = observed()$cutoffdt, y = 0, text = 'cutoff',
-                    xanchor = "left", yanchor = "bottom",
+                    x = observed()$cutoffdt, y = 0, text = "cutoff",
+                    xanchor = "left", yanchor = "bottom", textangle = -90,
                     font = list(size = 12), showarrow = FALSE))
 
               if (observed()$tp < observed()$t0) {
@@ -2503,8 +2721,8 @@ server <- function(input, output, session) {
                   plotly::layout(
                     annotations = list(
                       x = observed()$cutofftpdt, y = 0,
-                      text = 'prediction start',
-                      xanchor = "left", yanchor = "bottom",
+                      text = "prediction start",
+                      xanchor = "left", yanchor = "bottom", textangle = -90,
                       font = list(size=12), showarrow = FALSE))
               }
 
@@ -2527,12 +2745,12 @@ server <- function(input, output, session) {
         } else {  # Design stage
           g <- list()
           for (i in c(9999, 1:k())) {
-            dfsi <- dfs %>% filter(treatment == i)
+            dfsi <- dfs[treatment == i]
 
-            dfsi_enrollment <- dfsi %>% filter(parameter == "Enrollment")
-            dfsi_event <- dfsi %>% filter(parameter == "Event")
-            dfsi_dropout <- dfsi %>% filter(parameter == "Dropout")
-            dfsi_ongoing <- dfsi %>% filter(parameter == "Ongoing")
+            dfsi_enrollment <- dfsi[parameter == "Enrollment"]
+            dfsi_event <- dfsi[parameter == "Event"]
+            dfsi_dropout <- dfsi[parameter == "Dropout"]
+            dfsi_ongoing <- dfsi[parameter == "Ongoing"]
 
             g[[(i+1) %% 9999]] <- plotly::plot_ly() %>%
               plotly::add_lines(
@@ -2574,7 +2792,8 @@ server <- function(input, output, session) {
               plotly::layout(
                 annotations = list(
                   x = 0.5, y = 1,
-                  text = paste0("<b>", dfsi$treatment_description[1], "</b>"),
+                  text = paste0("<b>", dfsi$treatment_description[1],
+                                "</b>"),
                   xanchor = "center", yanchor = "bottom",
                   showarrow = FALSE, xref='paper', yref='paper'))
 
@@ -2612,11 +2831,13 @@ server <- function(input, output, session) {
     (to_predict() == "Enrollment only" &&
        (input$by_treatment || input$stage == 'Design stage') && k() > 1 &&
        "treatment" %in% names(pred()$enroll_pred$enroll_pred_df) &&
-       length(table(pred()$enroll_pred$enroll_pred_df$treatment)) == k()+1) ||
+       length(table(pred()$enroll_pred$enroll_pred_df$treatment)) ==
+       k() + 1) ||
       (to_predict() != "Enrollment only" &&
          (input$by_treatment || input$stage == 'Design stage') && k() > 1 &&
          "treatment" %in% names(pred()$event_pred$event_pred_df) &&
-         length(table(pred()$event_pred$event_pred_df$treatment)) == k()+1)
+         length(table(pred()$event_pred$event_pred_df$treatment)) ==
+         k() + 1)
   })
 
 
@@ -2659,10 +2880,12 @@ server <- function(input, output, session) {
       if (to_predict() == "Enrollment only") {
         eventsummarydata <- pred()$enroll_pred$enroll_pred_df
       } else {
-        eventsummarydata <- pred()$event_pred$enroll_pred_df %>%
-          bind_rows(pred()$event_pred$event_pred_df) %>%
-          bind_rows(pred()$event_pred$dropout_pred_df) %>%
-          bind_rows(pred()$event_pred$ongoing_pred_df)
+        eventsummarydata <- data.table::rbindlist(list(
+          pred()$event_pred$enroll_pred_df,
+          bind_rows(pred()$event_pred$event_pred_df),
+          bind_rows(pred()$event_pred$dropout_pred_df),
+          bind_rows(pred()$event_pred$ongoing_pred_df)),
+          use.names = TRUE)
       }
       writexl::write_xlsx(eventsummarydata, file)
     }
@@ -2844,6 +3067,8 @@ server <- function(input, output, session) {
         target_d = input$target_d,
         pilevel = pilevel(),
         nyears = nyears(),
+        pred_at_t = input$pred_at_t,
+        target_t = target_t(),
         to_show = input$to_show,
         by_treatment = input$by_treatment,
         k = k(),
@@ -2895,6 +3120,7 @@ server <- function(input, output, session) {
                           "Starting time")),
         spline_k = spline_k(),
         spline_scale = input$spline_scale,
+        m_event = m_event(),
 
         dropout_prior = input$dropout_prior,
         exponential_dropout = matrix(
@@ -2923,7 +3149,8 @@ server <- function(input, output, session) {
                                 1:length(piecewiseDropoutTime())),
                           "Starting time")),
         spline_k_dropout = spline_k_dropout(),
-        spline_scale_dropout = input$spline_scale_dropout
+        spline_scale_dropout = input$spline_scale_dropout,
+        m_dropout = m_dropout()
       )
 
       save(x, file = file)
@@ -2962,6 +3189,14 @@ server <- function(input, output, session) {
 
     updateNumericInput(session, "pilevel", value=x$pilevel)
     updateNumericInput(session, "nyears", value=x$nyears)
+
+    if (x$to_predict == 'Enrollment and event' ||
+        x$stage == 'Real-time after enrollment completion') {
+      updateCheckboxInput(session, "pred_at_t", value=x$pred_at_t)
+      if (x$pred_at_t) {
+        updateNumericInput(session, "target_t", value=x$target_t)
+      }
+    }
 
     updateCheckboxInput(session, "by_treatment", value=x$by_treatment)
 
@@ -3055,7 +3290,11 @@ server <- function(input, output, session) {
             session, "piecewiseSurvivalTime", value=x$piecewiseSurvivalTime)
         } else if (x$event_model == "Spline") {
           updateNumericInput(session, "spline_k", value=x$spline_k)
-          updateRadioButtons(session, "spline_scale", selected=x$spline_scale)
+          updateRadioButtons(session, "spline_scale",
+                             selected=x$spline_scale)
+        } else if (x$event_model == "Cox model") {
+          updateNumericInput(session, "m_event",
+                             value=x$m_event)
         }
       }
     }
@@ -3063,7 +3302,8 @@ server <- function(input, output, session) {
 
     if (x$stage == 'Design stage') {
       if (x$to_predict == 'Enrollment and event') {
-        updateRadioButtons(session, "dropout_prior", selected=x$dropout_prior)
+        updateRadioButtons(session, "dropout_prior",
+                           selected=x$dropout_prior)
       }
 
       if (x$dropout_prior == 'Exponential') {
@@ -3100,7 +3340,8 @@ server <- function(input, output, session) {
            x$to_predict == 'Enrollment and event') ||
           x$stage == 'Real-time after enrollment completion') {
 
-        updateRadioButtons(session, "dropout_model", selected=x$dropout_model)
+        updateRadioButtons(session, "dropout_model",
+                           selected=x$dropout_model)
 
         if (x$dropout_model == "Piecewise exponential") {
           updateMatrixInput(
@@ -3110,6 +3351,9 @@ server <- function(input, output, session) {
                              value=x$spline_k_dropout)
           updateRadioButtons(session, "spline_scale_dropout",
                              selected=x$spline_scale_dropout)
+        } else if (x$dropout_model == "Cox model") {
+          updateNumericInput(session, "m_dropout",
+                             value=x$m_dropout)
         }
       }
     }

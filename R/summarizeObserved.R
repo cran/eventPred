@@ -28,16 +28,19 @@
 #'
 #' @examples
 #'
-#' observed1 <- summarizeObserved(df = interimData1,
-#'                                to_predict = "enrollment and event")
+#' observed1 <- summarizeObserved(
+#'   df = interimData1,
+#'   to_predict = "enrollment and event")
 #'
-#' observed2 <- summarizeObserved(df = interimData2,
-#'                                to_predict = "event only")
+#' observed2 <- summarizeObserved(
+#'   df = interimData2,
+#'   to_predict = "event only")
 #'
 #' @export
 #'
 summarizeObserved <- function(df, to_predict = "event only",
                               showplot = TRUE, by_treatment = FALSE) {
+
   erify::check_class(df, "data.frame")
   erify::check_content(tolower(to_predict),
                        c("enrollment only", "event only",
@@ -45,71 +48,71 @@ summarizeObserved <- function(df, to_predict = "event only",
   erify::check_bool(showplot)
   erify::check_bool(by_treatment)
 
-  df <- dplyr::as_tibble(df)
-  names(df) <- tolower(names(df))
-  df$trialsdt <- as.Date(df$trialsdt)
-  df$randdt <- as.Date(df$randdt)
-  df$cutoffdt <- as.Date(df$cutoffdt)
+  dt <- data.table::setDT(data.table::copy(df))
 
-  trialsdt = df$trialsdt[1]
-  cutoffdt = df$cutoffdt[1]
+  dt$trialsdt <- as.Date(dt$trialsdt)
+  dt$randdt <- as.Date(dt$randdt)
+  dt$cutoffdt <- as.Date(dt$cutoffdt)
+
+  trialsdt = dt[1, get("trialsdt")]
+  cutoffdt = dt[1, get("cutoffdt")]
   t0 = as.numeric(cutoffdt - trialsdt + 1)
-  n0 = nrow(df)  # current number of subjects enrolled
+  n0 = nrow(dt)  # current number of subjects enrolled
 
-  if (any(df$randdt < trialsdt)) {
+  if (dt[, any(get("randdt") < get("trialsdt"))]) {
     stop("randdt must be greater than or equal to trialsdt")
   }
 
-  if (any(df$randdt > cutoffdt)) {
+  if (dt[, any(get("randdt") > get("cutoffdt"))]) {
     stop("randdt must be less than or equal to cutoffdt")
   }
 
   if (grepl("event", to_predict, ignore.case = TRUE)) {
-    d0 = sum(df$event)  # current number of events
-    c0 = sum(df$dropout) # current number of dropouts
-    r0 = sum(!(df$event | df$dropout)) # number of subjects at risk
+    d0 = dt[, sum(get("event"))]  # current number of events
+    c0 = dt[, sum(get("dropout"))] # current number of dropouts
+    r0 = dt[, sum(!get("event") & !get("dropout"))] # number at risk
 
-    # number of ongoing subjects with the last known date before cutoff
-    rp = sum((df$time < as.numeric(cutoffdt - df$randdt + 1)) &
-               !(df$event | df$dropout))
-
-    if (any(df$time < 1)) {
+    if (dt[, any(get("time") < 1)]) {
       stop("time must be greater than or equal to 1")
     }
 
-    if (any(df$event == 1 & df$dropout == 1)) {
+    if (dt[, any(get("event") & get("dropout"))]) {
       stop("event and dropout cannot both be equal to 1 simultaneously")
     }
 
-    if (any(df$time > as.numeric(cutoffdt - df$randdt + 1))) {
+    if (dt[, any(get("time") >
+                 as.numeric(get("cutoffdt") - get("randdt") + 1))]) {
       stop("time must be less than or equal to cutoffdt - randdt + 1")
     }
 
-    ongoingSubjects <- df %>%
-      dplyr::filter(.data$event == 0 & .data$dropout == 0)
+    ongoingSubjects <- dt[!get("event") & !get("dropout")]
+
+    # number of ongoing subjects with the last known date before cutoff
+    rp = dt[, sum(get("time") <
+                    as.numeric(get("cutoffdt") - get("randdt") + 1)
+                  & !get("event") & !get("dropout"))]
 
     # minimum calendar time for event prediction
-    tp = min(as.numeric(ongoingSubjects$randdt - trialsdt + 1) +
-               ongoingSubjects$time - 1)
+    tp = ongoingSubjects[, min(
+      as.numeric(get("randdt") - get("trialsdt")) + get("time"))]
+
     cutofftpdt = as.Date(tp - 1, origin = trialsdt)
   }
 
   if (by_treatment) {
-    ngroups = length(table(df$treatment))
-    if (!("treatment_description" %in% names(df))) {
-      df <- df %>% dplyr::mutate(
-        treatment_description = paste0("Treatment ", .data$treatment))
+    ngroups = dt[, data.table::uniqueN(get("treatment"))]
+
+    if (!("treatment_description" %in% names(dt))) {
+      dt[, `:=`(treatment_description =
+                  paste("Treatment", get("treatment")))]
     }
 
     # order treatment description based on treatment
-    df$treatment_description = stats::reorder(
-      as.factor(df$treatment_description), df$treatment)
+    dt[, `:=`(treatment_description = stats::reorder(as.factor(
+      get("treatment_description")), get("treatment")))]
 
-    treatment_mapping <- df %>%
-      dplyr::select(.data$treatment, .data$treatment_description) %>%
-      dplyr::arrange(.data$treatment) %>%
-      dplyr::group_by(.data$treatment) %>%
-      dplyr::slice(dplyr::n())
+    treatment_mapping <- dt[, mget(c("treatment", "treatment_description"))][
+      , .SD[.N], by = "treatment"]
   } else {
     ngroups = 1
   }
@@ -118,139 +121,102 @@ summarizeObserved <- function(df, to_predict = "event only",
     by_treatment = FALSE
   }
 
+
   # enrollment and event data
   if (!by_treatment) {
-    adsl <- df %>%
-      dplyr::arrange(.data$randdt) %>%
-      dplyr::mutate(n = dplyr::row_number(),
-                    parameter = "Enrollment",
-                    date = .data$randdt)
+    adsl <- dt[order(get("randdt"))][
+      , `:=`(n = .I, parameter = "Enrollment", date = get("randdt"))]
+
+    # columns to keep
+    cols = c("n", "parameter", "date")
 
     # remove duplicate
-    adslu <- adsl %>%
-      dplyr::group_by(.data$randdt) %>%
-      dplyr::slice(dplyr::n()) %>%
-      dplyr::ungroup() %>%
-      dplyr::select(.data$n, .data$parameter, .data$date)
+    adslu <- adsl[, .SD[.N], by = "randdt"][, mget(cols)]
 
     # dummy subject to initialize time axis at trial start
-    adsl0 <- dplyr::tibble(n = 0, parameter = "Enrollment", date = trialsdt)
+    adsl0 <- data.table(n = 0, parameter = "Enrollment", date = trialsdt)
 
     # extend enrollment information to cutoff date
-    adsl1 <- adsl %>%
-      dplyr::slice(dplyr::n()) %>%
-      dplyr::mutate(date = cutoffdt) %>%
-      dplyr::select(.data$n, .data$parameter, .data$date)
-
+    adsl1 <- adsl[.N][, `:=`(date = get("cutoffdt"))][, mget(cols)]
 
     if (grepl("event", to_predict, ignore.case = TRUE)) {
       # time to event data
-      adtte <- df %>%
-        dplyr::mutate(adt = as.Date(.data$time - 1, origin = .data$randdt)) %>%
-        dplyr::arrange(.data$adt) %>%
-        dplyr::mutate(n = cumsum(.data$event),
-                      parameter = "Event",
-                      date = .data$adt)
+      adtte <- data.table::copy(dt)[
+        , `:=`(adt = as.Date(get("time") - 1, origin = get("randdt")))][
+        order(get("adt")), `:=`(n = cumsum(get("event")),
+                                parameter = "Event", date = get("adt"))]
 
       # remove duplicate
-      adtteu <- adtte %>%
-        dplyr::group_by(.data$adt) %>%
-        dplyr::slice(dplyr::n()) %>%
-        dplyr::ungroup() %>%
-        dplyr::select(.data$n, .data$parameter, .data$date)
+      adtteu <- adtte[, .SD[.N], by = "adt"][, mget(cols)]
 
       # dummy subject to initialize time axis at trial start
-      adtte0 <- dplyr::tibble(n = 0, parameter = "Event", date = trialsdt)
+      adtte0 <- data.table(n = 0, parameter = "Event", date = trialsdt)
 
       # combine enrollment and time to event data
-      ad <- adsl0 %>%
-        dplyr::bind_rows(adslu) %>%
-        dplyr::bind_rows(adsl1) %>%
-        dplyr::bind_rows(adtte0) %>%
-        dplyr::bind_rows(adtteu)
+      ad <- data.table::rbindlist(list(
+        adsl0, adslu, adsl1, adtte0, adtteu), use.names = TRUE)
     } else {
-      ad <- adsl0 %>%
-        dplyr::bind_rows(adslu) %>%
-        dplyr::bind_rows(adsl1)
+      ad <- data.table::rbindlist(list(
+        adsl0, adslu, adsl1), use.names = TRUE)
     }
   } else { # by treatment
-    adsl <- df %>%
-      dplyr::group_by(.data$treatment, .data$treatment_description) %>%
-      dplyr::arrange(.data$randdt) %>%
-      dplyr::mutate(n = dplyr::row_number(),
-                    parameter = "Enrollment",
-                    date = .data$randdt) %>%
-      dplyr::ungroup()
+    trtcols = c("treatment", "treatment_description")
+
+    adsl <- dt[do.call("order", lapply(c(trtcols, "randdt"), as.name))][
+      , `:=`(n = seq_len(.N), parameter = "Enrollment", date = get("randdt")),
+      by = trtcols]
+
+    # columns to keep
+    cols = c("treatment", "treatment_description", "n", "parameter", "date")
 
     # remove duplicate
-    adslu <- adsl %>%
-      dplyr::group_by(.data$treatment, .data$treatment_description,
-                      .data$randdt) %>%
-      dplyr::slice(dplyr::n()) %>%
-      dplyr::ungroup() %>%
-      dplyr::select(.data$treatment, .data$treatment_description,
-                    .data$n, .data$parameter, .data$date)
+    adslu <- adsl[, .SD[.N], by = c(
+      "treatment", "treatment_description", "randdt")][, mget(cols)]
 
     # dummy subject to initialize time axis at trial start
-    adsl0 <- dplyr::tibble(treatment = 1:ngroups,
-                           n = 0,
-                           parameter = "Enrollment",
-                           date = trialsdt) %>%
-      dplyr::left_join(treatment_mapping, by = "treatment")
+    adsl0 <- merge(data.table(
+      treatment = 1:ngroups, n = 0, parameter = "Enrollment",
+      date = trialsdt),
+      treatment_mapping, by = "treatment", all.x = TRUE)
 
     # extend enrollment information to cutoff date
-    adsl1 <- adsl %>%
-      dplyr::group_by(.data$treatment, .data$treatment_description) %>%
-      dplyr::slice(dplyr::n()) %>%
-      dplyr::mutate(date = cutoffdt) %>%
-      dplyr::select(.data$treatment, .data$treatment_description,
-                    .data$n, .data$parameter, .data$date) %>%
-      dplyr::ungroup()
-
+    adsl1 <- adsl[, .SD[.N],
+                  by = c("treatment", "treatment_description")][
+                    , `:=`(date = get("cutoffdt"))][, mget(cols)]
 
     if (grepl("event", to_predict, ignore.case = TRUE)) {
       # time to event data
-      adtte <- df %>%
-        dplyr::group_by(.data$treatment, .data$treatment_description) %>%
-        dplyr::mutate(adt = as.Date(.data$time - 1, origin = .data$randdt)) %>%
-        dplyr::arrange(.data$adt) %>%
-        dplyr::mutate(n = cumsum(.data$event),
-                      parameter = "Event",
-                      date = .data$adt) %>%
-        dplyr::ungroup()
+      trtcols = c("treatment", "treatment_description")
+
+      adtte <- data.table::copy(dt)[
+        , `:=`(adt = as.Date(get("time") - 1, origin = get("randdt")))][
+          do.call("order", lapply(c(trtcols, "adt"), as.name))][
+            , `:=`(n = cumsum(get("event")),
+                   parameter = "Event", date = get("adt")),
+            by = trtcols]
 
       # remove duplicate
-      adtteu <- adtte %>%
-        dplyr::group_by(.data$treatment, .data$treatment_description,
-                        .data$adt) %>%
-        dplyr::slice(dplyr::n()) %>%
-        dplyr::ungroup() %>%
-        dplyr::select(.data$treatment, .data$treatment_description,
-                      .data$n, .data$parameter, .data$date)
+      adtteu <- adtte[, .SD[.N], by = c(
+        "treatment", "treatment_description", "adt")][, mget(cols)]
 
       # dummy subject to initialize time axis at trial start
-      adtte0 <- dplyr::tibble(treatment = 1:ngroups,
-                              n = 0,
-                              parameter = "Event",
-                              date = trialsdt) %>%
-        dplyr::left_join(treatment_mapping, by = "treatment")
+      adtte0 <- merge(data.table(
+        treatment = 1:ngroups, n = 0, parameter = "Event", date = trialsdt),
+        treatment_mapping, by = "treatment", all.x = TRUE)
 
       # combine enrollment and time to event data
-      ad <- adsl0 %>%
-        dplyr::bind_rows(adslu) %>%
-        dplyr::bind_rows(adsl1) %>%
-        dplyr::bind_rows(adtte0) %>%
-        dplyr::bind_rows(adtteu)
+      ad <- data.table::rbindlist(list(
+        adsl0, adslu, adsl1, adtte0, adtteu), use.names = TRUE)
     } else {
-      ad <- adsl0 %>%
-        dplyr::bind_rows(adslu) %>%
-        dplyr::bind_rows(adsl1)
+      ad <- data.table::rbindlist(list(
+        adsl0, adslu, adsl1), use.names = TRUE)
     }
   }
 
+
   # plot cumulative enrollment and event data
   if (!by_treatment) {
-    if (length(unique(ad$parameter)) > 1) {
+    if (ad[, data.table::uniqueN(get("parameter")) > 1]) {
       cumAccrual <- plotly::plot_ly(
         ad, x=~date, y=~n, color=~parameter, colors=c("blue", "red")) %>%
         plotly::add_lines(line = list(shape = "hv")) %>%
@@ -270,7 +236,7 @@ summarizeObserved <- function(df, to_predict = "event only",
 
     if (showplot) print(cumAccrual)
   } else { # by treatment
-    if (length(unique(ad$parameter)) > 1) {
+    if (ad[, data.table::uniqueN(get("parameter")) > 1]) {
       cumAccrual <- plotly::plot_ly(
         ad, x=~date, y=~n, color=~parameter, colors=c("blue", "red"),
         linetype=~treatment_description) %>%
@@ -295,14 +261,15 @@ summarizeObserved <- function(df, to_predict = "event only",
     if (showplot) print(cumAccrual)
   }
 
+
   # daily enrollment plot with loess smoothing
   if (grepl("enrollment", to_predict, ignore.case = TRUE)) {
-    t = as.numeric(adsl$randdt - trialsdt + 1)
+    t = adsl[, as.numeric(get("randdt") - get("trialsdt") + 1)]
     days = seq(1, t0)
     n = as.numeric(table(factor(t, levels = days)))
 
-    enroll <- dplyr::tibble(day = days, n = n) %>%
-      dplyr::mutate(date = as.Date(.data$day - 1, origin = trialsdt))
+    enroll <- data.table(day = days, n = n,
+                         date = as.Date(days - 1, origin = trialsdt))
 
     fit <- loess.smooth(enroll$date, enroll$n,
                         span = 1/3, degree = 1, family = "gaussian")
@@ -320,18 +287,19 @@ summarizeObserved <- function(df, to_predict = "event only",
     if (showplot) print(dailyAccrual)
   }
 
+
   # Kaplan-Meier plot
   if (grepl("event", to_predict, ignore.case = TRUE)) {
     if (!by_treatment) {
       kmfitEvent <- survival::survfit(survival::Surv(time, event) ~ 1,
                                       data = adtte)
 
-      kmdfEvent <- dplyr::tibble(time = kmfitEvent$time,
-                                 surv = kmfitEvent$surv)
+      kmdfEvent <- data.table(time = kmfitEvent$time,
+                              surv = kmfitEvent$surv)
       # add day 1
-      if (min(kmdfEvent$time) > 1) {
-        kmdfEvent <- dplyr::tibble(time = 1, surv = 1) %>%
-          dplyr::bind_rows(kmdfEvent)
+      if (kmdfEvent[, min(get("time")) > 1]) {
+        kmdfEvent <- data.table::rbindlist(list(
+          data.table(time = 1, surv = 1), kmdfEvent), use.names = TRUE)
       }
 
       kmEvent <- plotly::plot_ly(kmdfEvent, x=~time, y=~surv) %>%
@@ -347,11 +315,12 @@ summarizeObserved <- function(df, to_predict = "event only",
       kmfitDropout <- survival::survfit(survival::Surv(time, dropout) ~ 1,
                                         data = adtte)
 
-      kmdfDropout <- dplyr::tibble(time = kmfitDropout$time,
-                                   surv = kmfitDropout$surv)
-      if (min(kmdfDropout$time) > 1) {
-        kmdfDropout <- dplyr::tibble(time = 1, surv = 1) %>%
-          dplyr::bind_rows(kmdfDropout)
+      kmdfDropout <- data.table(time = kmfitDropout$time,
+                                surv = kmfitDropout$surv)
+      # add day 1
+      if (kmdfDropout[, min(get("time")) > 1]) {
+        kmdfDropout <- data.table::rbindlist(list(
+          data.table(time = 1, surv = 1), kmdfDropout), use.names = TRUE)
       }
 
       kmDropout <- plotly::plot_ly(kmdfDropout, x=~time, y=~surv) %>%
@@ -363,26 +332,25 @@ summarizeObserved <- function(df, to_predict = "event only",
 
       if (showplot) print(kmDropout)
     } else { # by treatment
-      kmfitEvent <- survival::survfit(survival::Surv(time, event) ~ treatment,
-                                      data = adtte)
-      treatment <- as.numeric(substring(attr(kmfitEvent$strata, "names"), 11))
-      treatment_description <-
-        (treatment_mapping %>% dplyr::right_join(dplyr::tibble(
-          treatment = treatment), by = "treatment"))$treatment_description
+      kmfitEvent <- survival::survfit(survival::Surv(time, event) ~
+                                        treatment, data = adtte)
 
-      kmdfEvent <- dplyr::tibble(
-        treatment = treatment, treatment_description = treatment_description,
-        time = 1, surv = 1) %>%
-        dplyr::bind_rows(dplyr::tibble(
-          treatment = rep(treatment, kmfitEvent$strata),
-          treatment_description = rep(treatment_description,
-                                      kmfitEvent$strata),
-          time = kmfitEvent$time,
-          surv = kmfitEvent$surv)) %>%
-        dplyr::group_by(.data$treatment, .data$treatment_description,
-                        .data$time) %>%
-        dplyr::slice(dplyr::n()) %>%
-        dplyr::ungroup()
+      treatment <- as.numeric(substring(names(kmfitEvent$strata), 11))
+
+      treatment_description <- treatment_mapping[
+        get("treatment") %in% treatment, get("treatment_description")]
+
+      kmdfEvent <- data.table::rbindlist(list(
+        data.table(treatment = treatment,
+                   treatment_description = treatment_description,
+                   time = 1, surv = 1),
+        data.table(treatment = rep(treatment, kmfitEvent$strata),
+                   treatment_description =
+                     rep(treatment_description, kmfitEvent$strata),
+                   time = kmfitEvent$time,
+                   surv = kmfitEvent$surv)),
+        use.names = TRUE)[
+          , .SD[.N], by = c("treatment", "treatment_description", "time")]
 
       kmEvent <- plotly::plot_ly(
         kmdfEvent, x=~time, y=~surv, linetype=~treatment_description) %>%
@@ -400,25 +368,22 @@ summarizeObserved <- function(df, to_predict = "event only",
       kmfitDropout <- survival::survfit(survival::Surv(time, dropout) ~
                                           treatment, data = adtte)
 
-      treatment <- as.numeric(substring(attr(kmfitDropout$strata, "names"),
-                                        11))
-      treatment_description <-
-        (treatment_mapping %>% dplyr::right_join(dplyr::tibble(
-          treatment = treatment), by = "treatment"))$treatment_description
+      treatment <- as.numeric(substring(names(kmfitDropout$strata), 11))
 
-      kmdfDropout <- dplyr::tibble(
-        treatment = treatment, treatment_description = treatment_description,
-        time = 1, surv = 1) %>%
-        dplyr::bind_rows(dplyr::tibble(
-          treatment = rep(treatment, kmfitDropout$strata),
-          treatment_description = rep(treatment_description,
-                                      kmfitDropout$strata),
-          time = kmfitDropout$time,
-          surv = kmfitDropout$surv)) %>%
-        dplyr::group_by(.data$treatment, .data$treatment_description,
-                        .data$time) %>%
-        dplyr::slice(dplyr::n()) %>%
-        dplyr::ungroup()
+      treatment_description <- treatment_mapping[
+        get("treatment") %in% treatment, get("treatment_description")]
+
+      kmdfDropout <- data.table::rbindlist(list(
+        data.table(treatment = treatment,
+                   treatment_description = treatment_description,
+                   time = 1, surv = 1),
+        data.table(treatment = rep(treatment, kmfitDropout$strata),
+                   treatment_description =
+                     rep(treatment_description, kmfitDropout$strata),
+                   time = kmfitDropout$time,
+                   surv = kmfitDropout$surv)),
+        use.names = TRUE)[
+          , .SD[.N], by = c("treatment", "treatment_description", "time")]
 
       kmDropout <- plotly::plot_ly(
         kmdfDropout, x=~time, y=~surv, linetype=~treatment_description) %>%
@@ -433,6 +398,7 @@ summarizeObserved <- function(df, to_predict = "event only",
       if (showplot) print(kmDropout)
     }
   }
+
 
   # output
   if (grepl("event", to_predict, ignore.case = TRUE)) {

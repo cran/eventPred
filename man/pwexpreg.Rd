@@ -4,7 +4,7 @@
 \alias{pwexpreg}
 \title{Piecewise exponential regression}
 \usage{
-pwexpreg(time, event, J, tcut, q, x)
+pwexpreg(time, event, J, tcut, q = 0, x = 1)
 }
 \arguments{
 \item{time}{The survival time.}
@@ -18,9 +18,10 @@ for the baseline piecewise exponential survival distribution.
 Must start with 0, e.g., c(0, 60) breaks the time axis into 2 event
 intervals: [0, 60) and [60, Inf). By default, it is set to 0.}
 
-\item{q}{The number of columns of the covariates matrix.}
+\item{q}{The number of columns of the covariates matrix
+(exluding the intercept).}
 
-\item{x}{The covariates matrix (excluding the intercept).}
+\item{x}{The covariates matrix (including the intercept).}
 }
 \value{
 The maximum likelihood estimates and the associated

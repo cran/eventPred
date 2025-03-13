@@ -6,8 +6,8 @@
 \usage{
 predictEnrollment(
   df = NULL,
-  target_n,
-  enroll_fit,
+  target_n = NA,
+  enroll_fit = NULL,
   lags = 30,
   pilevel = 0.9,
   nyears = 4,
@@ -107,13 +107,15 @@ generate enrollment times for new subjects.
 }
 \examples{
 # Enrollment prediction at the design stage
+set.seed(1000)
 
 enroll_pred <- predictEnrollment(
   target_n = 300,
-  enroll_fit = list(model = "piecewise poisson",
-                    theta = log(26/9*seq(1, 9)/30.4375),
-                    vtheta = diag(9)*1e-8,
-                    accrualTime = seq(0, 8)*30.4375),
+  enroll_fit = list(
+    model = "piecewise poisson",
+    theta = log(26/9*seq(1, 9)/30.4375),
+    vtheta = diag(9)*1e-8,
+    accrualTime = seq(0, 8)*30.4375),
   pilevel = 0.90, nreps = 100)
 
 }

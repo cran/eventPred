@@ -12,7 +12,7 @@
 
 <meta name="author" content="Kaifeng Lu" />
 
-<meta name="date" content="2024-01-20" />
+<meta name="date" content="2025-02-27" />
 
 <title>Event Prediction before Enrollment Completion</title>
 
@@ -62,7 +62,7 @@ div.sourceCode { overflow: auto; }
 }
 @media print {
 pre > code.sourceCode { white-space: pre-wrap; }
-pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+pre > code.sourceCode > span { display: inline-block; text-indent: -5em; padding-left: 5em; }
 }
 pre.numberSource code
 { counter-reset: source-line 0; }
@@ -341,7 +341,7 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 <h1 class="title toc-ignore">Event Prediction before Enrollment
 Completion</h1>
 <h4 class="author">Kaifeng Lu</h4>
-<h4 class="date">2024-01-20</h4>
+<h4 class="date">2025-02-27</h4>
 
 
 
@@ -367,15 +367,15 @@ one).</p>
 <span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a>  <span class="at">dropout_model =</span> <span class="st">&quot;none&quot;</span>,</span>
 <span id="cb2-11"><a href="#cb2-11" tabindex="-1"></a>  <span class="at">pilevel =</span> <span class="fl">0.90</span>, </span>
 <span id="cb2-12"><a href="#cb2-12" tabindex="-1"></a>  <span class="at">nreps =</span> <span class="dv">500</span>)</span>
-<span id="cb2-13"><a href="#cb2-13" tabindex="-1"></a><span class="co">#&gt; Time from cutoff until 300 subjects: 72 days</span></span>
-<span id="cb2-14"><a href="#cb2-14" tabindex="-1"></a><span class="co">#&gt; Median prediction date: 2019-05-11</span></span>
-<span id="cb2-15"><a href="#cb2-15" tabindex="-1"></a><span class="co">#&gt; Prediction interval: 2019-04-26, 2019-06-24</span></span>
-<span id="cb2-16"><a href="#cb2-16" tabindex="-1"></a><span class="co">#&gt; Time from cutoff until 200 events: 835 days</span></span>
-<span id="cb2-17"><a href="#cb2-17" tabindex="-1"></a><span class="co">#&gt; Median prediction date: 2021-06-12</span></span>
-<span id="cb2-18"><a href="#cb2-18" tabindex="-1"></a><span class="co">#&gt; Prediction interval: 2020-06-17, 2022-12-18</span></span></code></pre></div>
-<p>The median predicted date to reach 200 events is June 13, 2021. The
+<span id="cb2-13"><a href="#cb2-13" tabindex="-1"></a><span class="co">#&gt; Time from cutoff until 300 subjects: 72 days </span></span>
+<span id="cb2-14"><a href="#cb2-14" tabindex="-1"></a><span class="co">#&gt;  Median prediction date: 2019-05-11 </span></span>
+<span id="cb2-15"><a href="#cb2-15" tabindex="-1"></a><span class="co">#&gt;  Prediction interval: 2019-04-26, 2019-06-24 </span></span>
+<span id="cb2-16"><a href="#cb2-16" tabindex="-1"></a><span class="co">#&gt; Time from cutoff until 200 events: 835 days </span></span>
+<span id="cb2-17"><a href="#cb2-17" tabindex="-1"></a><span class="co">#&gt;  Median prediction date: 2021-06-12 </span></span>
+<span id="cb2-18"><a href="#cb2-18" tabindex="-1"></a><span class="co">#&gt;  Prediction interval: 2020-06-17, 2022-12-18</span></span></code></pre></div>
+<p>The median predicted date to reach 200 events is June 12, 2021. The
 90% prediction interval for event completion is wide, ranging from June
-18, 2020 to December 18, 2022, indicating uncertainty in the prediction.
+17, 2020 to December 18, 2022, indicating uncertainty in the prediction.
 The wide prediction interval is primarily attributed to the limited
 number of events observed thus far (42 out of 200 target events). More
 events are needed to refine the prediction and narrow the prediction

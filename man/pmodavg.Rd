@@ -4,7 +4,7 @@
 \alias{pmodavg}
 \title{Distribution function for model averaging of Weibull and log-normal}
 \usage{
-pmodavg(t, theta, w1, q, x, lower.tail = TRUE, log.p = FALSE)
+pmodavg(t, theta, w1, q = 0, x = 1, lower.tail = TRUE, log.p = FALSE)
 }
 \arguments{
 \item{t}{The vector of time points.}
@@ -15,9 +15,10 @@ regression scale parameter for the Weibull and log-normal distributions.}
 
 \item{w1}{The weight for the Weibull component distribution.}
 
-\item{q}{The number of elements in the vector of covariates.}
+\item{q}{The number of elements in the vector of covariates
+(excluding the intercept).}
 
-\item{x}{The vector of covariates (excluding the intercept).}
+\item{x}{The vector of covariates (including the intercept).}
 
 \item{lower.tail}{logical; if TRUE (default), probabilities are
 the distribution function, otherwise, the survival function.}
