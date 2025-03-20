@@ -88,8 +88,7 @@ By default, it is set to 0.}
 \item{event_model}{The event model used to analyze the event data
 which can be set to one of the following options:
 "exponential", "Weibull", "log-logistic", "log-normal",
-"piecewise exponential", "model averaging", "spline", or
-"cox model".
+"piecewise exponential", "model averaging", "spline", or "cox".
 The model averaging uses the \code{exp(-bic/2)} weighting and
 combines Weibull and log-normal models. By default, it is set to
 "model averaging".}
@@ -120,8 +119,7 @@ function beyond the last observed event time.}
 \item{dropout_model}{The dropout model used to analyze the dropout data
 which can be set to one of the following options:
 "none", "exponential", "Weibull", "log-logistic", "log-normal",
-"piecewise exponential", "model averaging", "spline", or
-"cox model".
+"piecewise exponential", "model averaging", "spline", or "cox".
 The model averaging uses the \code{exp(-bic/2)} weighting and
 combines Weibull and log-normal models. By default, it is set to
 "exponential".}
@@ -266,7 +264,7 @@ For the piecewise exponential event (dropout) model, the list
 should also include \code{piecewiseSurvivalTime}
 (\code{piecewiseDropoutTime}) to indicate the location of knots.
 It should be noted that the model averaging, spline, and
-cox model options are not appropriate for use as prior.
+cox options are not appropriate for use as prior.
 
 If the event prediction is not by treatment while the prior
 information is given by treatment, then each element of

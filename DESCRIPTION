@@ -1,7 +1,7 @@
 Package: eventPred
 Title: Event Prediction
-Version: 0.2.7
-Date: 2025-03-12
+Version: 0.2.8
+Date: 2025-03-20
 Authors@R: 
     person("Kaifeng", "Lu", , "kaifenglu@gmail.com", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0002-6160-7119"))
@@ -22,9 +22,10 @@ VignetteBuilder: knitr
 LazyData: true
 URL: https://github.com/kaifenglu/eventPred
 BugReports: https://github.com/kaifenglu/eventPred/issues
+Config/testthat/edition: 3
 NeedsCompilation: no
-Packaged: 2025-03-13 03:35:55 UTC; kaife
+Packaged: 2025-03-20 20:31:10 UTC; kaife
 Author: Kaifeng Lu [aut, cre] (<https://orcid.org/0000-0002-6160-7119>)
 Maintainer: Kaifeng Lu <kaifenglu@gmail.com>
 Repository: CRAN
-Date/Publication: 2025-03-13 14:20:05 UTC
+Date/Publication: 2025-03-20 21:10:02 UTC
